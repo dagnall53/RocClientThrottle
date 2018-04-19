@@ -7,4 +7,5 @@ Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends e
 
 This code allows for up to 126 locos. Above this the code gets unstable.
 
-
+## Hardware
+Designed for "wemos battery OLED board". This includes, battery, 5 way switch and Oled.
