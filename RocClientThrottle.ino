@@ -1,8 +1,11 @@
 #define ver 001
 
 
-#include <OLEDDisplay.h>
-#include <SSD1306.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
+
+#include <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
+
+
+
 
 #include "images.h" 
 #include "Terrier.h"
@@ -22,6 +25,9 @@ uint8_t ip1;
 uint8_t    subIPH;
 uint8_t    subIPL;
 uint16_t HandControlID;
+
+
+
 //LOCO throttle settings from mqtt
 extern int LocoNumbers; //set in parse to actual number of locos in lc list
 
@@ -35,9 +41,9 @@ extern String LOCO_spcnt[MAXLOCOS];
 IPAddress ipBroad;
 IPAddress mosquitto;
 int connects;
-
+// OLED’s SDA and SCL connect to the D1 pin and the D2 pin respectively.
 // connect to display using pins D1, D2 for I2C on address 0x3c
-SSD1306  display(0x3c, D1, D2);
+SSD1306Wire  display(0x3c, D1, D2);
  #include "Menu.h"; //place for menu and display stuff
 
  
@@ -52,13 +58,14 @@ int buttonState5 = 0;         // variable for reading the pushbutton status
 int buttonState6 = 0;         // variable for reading the pushbutton status
 int buttonState7 = 0;         // variable for reading the pushbutton status
 bool buttonpressed;  
-
+uint32_t ButtonPressTimer;
 // display and selection stuff
 int MenuLevel;
 int locoindex;
 int fnindex;
 int speedindex;
 bool directionindex;
+bool AllDataRead;
 
 void ConnectionPrint() {
   Serial.println("");
@@ -111,7 +118,7 @@ delay(10);
  
  //   ++++++++++ MQTT setup stuff   +++++++++++++++++++++
   mosquitto[0] = ipBroad[0]; mosquitto[1] = ipBroad[1]; mosquitto[2] = ipBroad[2];
-  mosquitto[3] = 18;                //saved mosquitto address, where the broker is! originally saved as RN[14], 
+  mosquitto[3] = BrokerAddr; //18;                //forced  mosquitto address, where the broker is! originally saved as RN[14], 
   Serial.print(F(" Mosquitto will first try to connect to:"));
   Serial.println(mosquitto);
   MQTT_Setup();
@@ -133,8 +140,8 @@ void PrintLocoSettings(){
 }
 
 void Picture(){
-  display.clear(); 
-  drawImageDemo(); 
+  display.clear(); display.display();
+  display.drawXbm(1,1, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
   display.display();
 }
 
@@ -154,6 +161,8 @@ void setup() {
   
   // set text y coordinate to start at 0
   y = 0;
+  display.clear();
+  //display.invert
  display.setTextAlignment(TEXT_ALIGN_CENTER);
  display.setFont(ArialMT_Plain_16);
 //  display.flipScreenVertically();  
@@ -161,15 +170,16 @@ void setup() {
 connects=0;
 
  Status();
-Picture();
- delay(500);  display.clear(); 
+
   display.drawString(64, 12, "Connected");
   char MsgTemp[127];
   int cx;
   cx= sprintf (MsgTemp, " IP: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
   display.drawString(64, 32, MsgTemp);
   display.display(); delay(100); 
-  delay(2000); 
+  //Picture();
+ //delay(500);  
+  
 // initial defaults
 MenuLevel=0;
 locoindex=1;
@@ -177,6 +187,8 @@ fnindex=3;
 speedindex=0;
 directionindex=true;
 LocoNumbers=0; 
+AllDataRead=false;
+LOCO_id[0]="this is an unikely name";
 }
 
  void MQTT_DO(void){
@@ -224,7 +236,7 @@ buttonState7 = digitalRead(buttonPin7);
     buttonpressed=true;delay(100);
     ButtonDown(MenuLevel);
     } 
-
+if (!buttonpressed) {ButtonPressTimer=millis();}
 
 
 

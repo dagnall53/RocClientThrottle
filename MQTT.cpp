@@ -41,6 +41,7 @@ uint32_t Ten_Sec;
 
 
 boolean Message_Decoded;
+extern bool AllDataRead;
 
 byte ParseIndex;
 int LocoNumbers;
@@ -50,6 +51,7 @@ String LOCO_V_mid[MAXLOCOS];
 String LOCO_V_cru[MAXLOCOS];
 String LOCO_V_max[MAXLOCOS];
 String LOCO_spcnt[MAXLOCOS];
+String ThisID;
 extern void Picture();
 
 int Count(unsigned int start,char* id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
@@ -137,7 +139,7 @@ void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
    }
 
 
-
+extern int locoindex;
 void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces rocfetch
   // do a check on length matching payload[7] ??
 char PayloadAscii[100];
@@ -151,7 +153,7 @@ char PayloadAscii[100];
      Message_Decoded = true;
      PrintTime("--Clock Synch--");Serial.println(".");
    // return;
-  }
+                                             }
   /// is it service info?
     if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
     // Print message size whilst finding out if the pubsub client max message size is adequate..
@@ -162,13 +164,19 @@ char PayloadAscii[100];
     // Print message size whilst finding out if the pubsub client max message size is adequate..
        for (int i=0; i<=50;i++){PayloadAscii[i]=char(payload[i]); }
    if (strncmp("<lc id=\"",PayloadAscii,8)==0){
-      Serial.print(F(" Found loco props list  <"));Serial.print(ParseIndex);Serial.println(">");
-      ParsePropsLocoList(ParseIndex,payload,Length);   
-      ParseIndex++;
-      Message_Decoded = true;
+      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ Serial.print(F(" Found loco props list  <"));Serial.print(ParseIndex);Serial.println(">");
+      ThisID=Attrib(1,"<lc id=\"",payload,Length);
+      if (ThisID==LOCO_id[locoindex]){Serial.print("this is a response for somethng we are working with at the moment");}
+         else{
+                if (ThisID==LOCO_id[0]){Serial.print(" Read this data before "); AllDataRead=true;    }
+                else{ParsePropsLocoList(ParseIndex,payload,Length);  
+                ParseIndex++;}
+             }  
+                Message_Decoded = true;}
+      
       }  
 
-       
+     // return;     
     }
  // end of service info 
   
@@ -184,6 +192,8 @@ char PayloadAscii[100];
          Message_Decoded = true; }
      if (strncmp("<sw id=",PayloadAscii,7)==0){
          Message_Decoded = true; }
+         //switch off debug
+         Message_Decoded=true;
 if (!Message_Decoded){
  bool NewLine;
  
@@ -341,8 +351,8 @@ void reconnect() {
       //Serial.print(client.state()); 
      // 
      connects=connects+1;
-    if (connects>=5){  mosquitto[3] = mosquitto[3]+1;
-    if (mosquitto[3]>=50){mosquitto[3]=3;}   }   // limit mqtt broker to 3-50 to save scan time
+   // if (connects>=5){  mosquitto[3] = mosquitto[3]+1;
+   // if (mosquitto[3]>=50){mosquitto[3]=3;}   }   // limit mqtt broker to 3-50 to save scan time
     delay(100);
     client.setServer(mosquitto, 1883);   // Hard set port at 1833
       Serial.println(" try again ...");

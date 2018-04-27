@@ -6,8 +6,10 @@ extern int speedindex;
 extern bool directionindex;
 extern int LocoNumbers;
 extern int y;
+extern uint32_t ButtonPressTimer;
 
 extern byte ParseIndex;
+extern bool AllDataRead;
 
 char* Str2Chr(String stringin){
   char* Converted;
@@ -26,9 +28,10 @@ void drawImageDemo() {
 //Select MONO as Output format AND press “Select format” (Who has invented THAT UI???)
 //Upload your image. I was succesful with a monochrome PNG file, whereas the XBM only resulted in an error.
 //Upload the created MONO file to your ESP8266 and use it with a code like this:
-
-    display.drawXbm(0,0, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo_bits); 
-    display.display(); 
+   
+   // display.drawXbm(20,20, WiFi_Logo_width, WiFi_Logo_height, WiFi_Logo_bits); 
+    display.drawXbm(0,0, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
+    
 }
 
 void SetLoco(int locoindex,int speedindex){
@@ -57,24 +60,41 @@ switch (abs(speedindex)){
   SpeedSelected=LOCO_V_max[locoindex].toInt();
      break;
 } 
+// if (speedindex>=0){cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+ //     else{cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
 
-  if (speedindex>=0){cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"true\"  throttleid=\"OctoThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
-      else{cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"false\"  throttleid=\"OctoThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+ if (speedindex>=0){cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+      else{cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+
   Serial.print(LOCO_id[locoindex]);Serial.println("<");Serial.print(MsgTemp);Serial.println(">");
   MQTTSend("rocrail/service/client",MsgTemp);
 }
+bool LightsState;
 
-
-void SoundLoco(int locoindex,int fnindex){
-   char MsgTemp[200];
+void LocoLights(int locoindex,bool state){
+  char MsgTemp[200];
   int cx;
-  cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"true\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);
+  if (state){
+  cx=sprintf(MsgTemp,"<lc id=\"%s\"  f0=\"true\"   />",Str2Chr(LOCO_id[locoindex]));}
+  else {cx=sprintf(MsgTemp,"<lc id=\"%s\"  f0=\"false\"   />",Str2Chr(LOCO_id[locoindex]));}
+  Serial.print(LOCO_id[locoindex]);Serial.println(" Lights set<");Serial.print(MsgTemp);Serial.println(">");
+  MQTTSend("rocrail/service/client",MsgTemp);
+  
+}
+
+void SetFn(int locoindex,int fnindex, bool state){
+  char MsgTemp[200];
+  int cx; 
+  if (state){  cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"true\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);}
+  else { cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"false\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);}
   Serial.print(LOCO_id[locoindex]);Serial.println(" fn set<");Serial.print(MsgTemp);Serial.println(">");
   MQTTSend("rocrail/service/client",MsgTemp);
+}
+
+void SoundLoco(int locoindex,int fnindex){
+  SetFn(locoindex,fnindex,true);
   delay(10);
-  cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"false\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);
-  MQTTSend("rocrail/service/client",MsgTemp);
-  Serial.print(LOCO_id[locoindex]);Serial.println(" fn off<");Serial.print(MsgTemp);Serial.println(">");
+  SetFn(locoindex,fnindex,false);
 }
 
 
@@ -95,7 +115,7 @@ switch (MenuLevel){
     display.setFont(ArialMT_Plain_10);
     display.drawString(64,1,"--- Select Loco ---");
 if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
+    display.setFont(ArialMT_Plain_16);
     display.drawString(64,20," Press to ");
     display.drawString(64,36,"Refresh List");
 }
@@ -224,7 +244,7 @@ switch (MenuLevel){
 }
 if (speedindex>=5){speedindex=5;}
 
-if (locoindex <=0) {locoindex=0;}
+if (locoindex <=1) {locoindex=1;}
 if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
 }
 
@@ -241,7 +261,7 @@ switch (MenuLevel){
  break;
  case 2:
  fnindex=fnindex-1;
- if (fnindex<=1){fnindex=1;}
+ if (fnindex<=0){fnindex=0;}
  break;
  default:
  break;
@@ -280,10 +300,12 @@ switch (MenuLevel){
  Serial.print("sending Loco info request   ");
  Serial.println("<model cmd=\"lclist\" />");
   ParseIndex=0;
+  AllDataRead=false;
   MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
+  
  }
- else {
-     SoundLoco(locoindex,2);
+ else {     
+             SoundLoco(locoindex,2);
       }
  break;
 
