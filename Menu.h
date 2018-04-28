@@ -75,9 +75,9 @@ void LocoLights(int locoindex,bool state){
   char MsgTemp[200];
   int cx;
   if (state){
-  cx=sprintf(MsgTemp,"<lc id=\"%s\"  f0=\"true\"   />",Str2Chr(LOCO_id[locoindex]));}
-  else {cx=sprintf(MsgTemp,"<lc id=\"%s\"  f0=\"false\"   />",Str2Chr(LOCO_id[locoindex]));}
-  Serial.print(LOCO_id[locoindex]);Serial.println(" Lights set<");Serial.print(MsgTemp);Serial.println(">");
+  cx=sprintf(MsgTemp,"<lc id=\"%s\"  fn=\"true\"   />",Str2Chr(LOCO_id[locoindex]));}
+  else {cx=sprintf(MsgTemp,"<lc id=\"%s\"  fn=\"false\"   />",Str2Chr(LOCO_id[locoindex]));}
+  Serial.print(LOCO_id[locoindex]);Serial.println(" Lights setting<");Serial.print(MsgTemp);Serial.println(">");
   MQTTSend("rocrail/service/client",MsgTemp);
   
 }
@@ -92,9 +92,12 @@ void SetFn(int locoindex,int fnindex, bool state){
 }
 
 void SoundLoco(int locoindex,int fnindex){
-  SetFn(locoindex,fnindex,true);
-  delay(10);
-  SetFn(locoindex,fnindex,false);
+  if (fnindex==0){LightsState=!LightsState;LocoLights(locoindex,LightsState);}
+  else{
+      SetFn(locoindex,fnindex,true);
+      delay(10);
+      SetFn(locoindex,fnindex,false);
+      }
 }
 
 
@@ -193,9 +196,15 @@ case 2: // selected loco, set fn
  //show fn
     display.setFont(ArialMT_Plain_10);
     display.drawString(64,20,"press for"); 
+    if (fnindex==0){
+      display.setFont(ArialMT_Plain_16);
+      if (LightsState){display.drawString(64,34,"Lights OFF"); }
+      else{display.drawString(64,34,"Lights ON");}
+                   }
+    else{
     display.setFont(ArialMT_Plain_16);
     display.drawString(25,34," Fn :");
-    display.drawString(64,34,FnIndexString);
+    display.drawString(64,34,FnIndexString);}
 
 
 
