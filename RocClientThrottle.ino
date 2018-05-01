@@ -47,7 +47,7 @@ SSD1306Wire  display(0x3c, D1, D2);
  #include "Menu.h"; //place for menu and display stuff
 
  
-int y;
+//int y;
 const int buttonPin3 = D3;     // the number of the pushbutton pin
 const int buttonPin5 = D5;     // the number of the pushbutton pin
 const int buttonPin6 = D6;     // the number of the pushbutton pin
@@ -112,7 +112,7 @@ delay(10);
   ipBroad = WiFi.localIP();
   subIPH = ipBroad[2];
   subIPL = ipBroad[3];
- wifiaddr = ipBroad[3];
+  wifiaddr = ipBroad[3];
   ConnectionPrint();
   ipBroad[3] = 255; //Set broadcast to local broadcast ip e.g. 192.168.0.255 // used in udp version of this program
  
@@ -122,7 +122,7 @@ delay(10);
   Serial.print(F(" Mosquitto will first try to connect to:"));
   Serial.println(mosquitto);
   MQTT_Setup();
-    Serial.println(F("-----------MQTT NOW setup ----------------")); 
+  Serial.println(F("-----------MQTT NOW setup ----------------")); 
 }
 
 
@@ -139,10 +139,11 @@ void PrintLocoSettings(){
       Serial.println("");}
 }
 
-void Picture(){
-  display.clear(); display.display();
+void Picture(){ //Essential to use GIMP to export the pictures as 1 bit XBM format.other lcd display sw does not have correct xbm formatting for monchrome
+  
+  display.clear(); 
   display.drawXbm(1,1, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
-  display.display();
+  //display.display();
 }
 
 void setup() {
@@ -160,25 +161,32 @@ void setup() {
   display.init();
   
   // set text y coordinate to start at 0
-  y = 0;
+//  y = 0;
   display.clear();
   //display.invert
  display.setTextAlignment(TEXT_ALIGN_CENTER);
- display.setFont(ArialMT_Plain_16);
+ display.setFont(ArialMT_Plain_10);
+ 
+ Picture();
+ display.drawString(64, 32, "Looking for WiFi");display.display();
+ delay(1000);
 //  display.flipScreenVertically();  
-//display.setRotation(1);
+
 connects=0;
 
  Status();
 
-  display.drawString(64, 12, "Connected");
+ Picture();
+  display.drawString(64, 32, "WiFi Connected"); display.display();delay(1000);
   char MsgTemp[127];
   int cx;
   cx= sprintf (MsgTemp, " IP: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
+ Picture();
   display.drawString(64, 32, MsgTemp);
-  display.display(); delay(100); 
-  //Picture();
- //delay(500);  
+  display.display();  display.setFont(ArialMT_Plain_16);
+  delay(1000); 
+  Picture();display.display();
+  delay(1000);  
   
 // initial defaults
 MenuLevel=0;
@@ -207,7 +215,7 @@ void loop() {
   buttonpressed=false; 
   DoDisplay(MenuLevel);
 
-  if (y>=64){y=0;}
+//  if (y>=64){y=0;}
   // turn off the LED
   digitalWrite(LED_BUILTIN, HIGH);
   delay(100);
@@ -250,7 +258,7 @@ if (!buttonpressed) {ButtonPressTimer=millis();}
 // display.drawString(64, y%64, "The screen");
 // display.drawString(64, (y+16)%64, "is working!");
 //  } 
-  y++;  // move text down 1 pixel next time and increment progress bar 
+// y++;  // move text down 1 pixel next time and increment progress bar 
 
 
 //display.drawString(64,20,LOCO_id[locoindex]);

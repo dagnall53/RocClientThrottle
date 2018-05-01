@@ -5,7 +5,7 @@ extern int fnindex;
 extern int speedindex;
 extern bool directionindex;
 extern int LocoNumbers;
-extern int y;
+//extern int y;
 extern uint32_t ButtonPressTimer;
 
 extern byte ParseIndex;
@@ -100,6 +100,7 @@ void SoundLoco(int locoindex,int fnindex){
       }
 }
 
+extern void Picture();
 
 void DoDisplay(int MenuLevel){
      //display.clear;
@@ -118,9 +119,11 @@ switch (MenuLevel){
     display.setFont(ArialMT_Plain_10);
     display.drawString(64,1,"--- Select Loco ---");
 if (LocoNumbers<=0){
+  Picture();
+    display.setFont(ArialMT_Plain_10);
+    display.drawString(64,25," Press to ");
+    display.drawString(64,38,"Refresh Loco List");
     display.setFont(ArialMT_Plain_16);
-    display.drawString(64,20," Press to ");
-    display.drawString(64,36,"Refresh List");
 }
   else{  
     if (locoindex>=1){
@@ -251,9 +254,9 @@ switch (MenuLevel){
   
 
 }
-if (speedindex>=5){speedindex=5;}
+if (speedindex>=4){speedindex=4;}
 
-if (locoindex <=1) {locoindex=1;}
+if (locoindex <=0) {locoindex=0;}
 if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
 }
 
@@ -276,7 +279,7 @@ switch (MenuLevel){
  break;
   
 }
-if (speedindex<=-5){speedindex=-5;}
+if (speedindex<=-4){speedindex=-4;}
 if (locoindex <=0) {locoindex=0;}
 if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
 }
