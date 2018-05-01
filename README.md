@@ -7,6 +7,19 @@ Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends e
 
 This code allows for up to 126 locos. Above this the code gets unstable. If you have >100 locos you should be considering another "proper" throttle!  
 
+## Use
+after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" and the list should populate with your list of locos from Rocrail. 
+Press the button "up" or "down" to select the loco you want to use.
+Press "right" (Away from the OLED) and the screen will sshow the loco name, and "Speed:0 STOP". The throttle uses the Rocrail loco speeds V_min, V_Mid, V_Cru and V_Max as set for the loco in Rocrail, and can select these speeds in forwards and reverse by selecting Up and down. Pressing the button "in" when moving and the speed is set to 0. Pressing the putton in when the sped iIS 0 will send F2 to the loco which on most is a toot. 
+From Speed, press "right" to access a screen where Fn 1-8 can be momentarily triggered. This screen also allows the lights to be turned on and off in position F0. 
+From the Fn selection screen, press right again to scroll to the loco selection screen.
+
+Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!.
+
+## Speeds
+Because of the simplicity of the throttle, I decided to use the Rocrail preset speeds, so the slowest the loco can move is the first step, going in 4 stages to V-Max. All these settings will be set per loco and so VMax for one loco will be different from another. So the first acceleration will take the loco to V-Min, followed by V-Mid etc. This is similar in principle to how the automatic control in Rocrail works. 
+
+
 ## Hardware
 Designed for "WeMos Battery OLED Board". This includes battery, 5 way switch and Oled.
 
