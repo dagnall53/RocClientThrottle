@@ -2,10 +2,11 @@
 A WiFi Rocrail Client throttle 
 
 
-## Improved version of octothrottle. 
-Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends each loc as a separate Mqtt message, so does not suffer the Message Limit that Octo Throttle had. 
+## A very simple throttle for Rocrail. 
+Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends each loc as a separate Mqtt message.
 
-This code allows for up to 126 locos. Above this the code gets unstable. If you have >100 locos you should be considering another "proper" throttle!  
+This code allows for up to 126 locos. Above this the code gets unstable. 
+If you have >100 locos you should be considering another "proper" throttle!  
 
 ## Use
 after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" and the list should populate with your list of locos from Rocrail. 
