@@ -1,10 +1,10 @@
-#define ver 001
+#define ver 002
 
 
 
 #include <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
 
-
+#include <ArduinoOTA.h>
 
 
 #include "images.h" 
@@ -26,7 +26,23 @@ uint8_t    subIPH;
 uint8_t    subIPL;
 uint16_t HandControlID;
 
+/* Encoder by Pul Stoffregen 
+ * http://www.pjrc.com/teensy/td_libs_Encoder.html
+ */
+//#define Rotary  // comment this out if not using the additional rotary switch
 
+#ifdef Rotary
+ #include <Encoder.h>
+ const int EncoderPinA = D9;     // the number of the A pushbutton pin (common is connected to ground
+ const int EncoderPinB = D4;     // the number of the B pushbutton pin (common is connected to ground
+ Encoder ThumbWheel(EncoderPinA, EncoderPinB);  //D3 D4
+ long ThrottlePosition;
+ long LastThrottlePosition;
+ long ThrottleClicks;
+ bool EncoderMoved;
+ bool LocoUpdated;
+ long EncoderMovedAt;
+#endif
 
 //LOCO throttle settings from mqtt
 extern int LocoNumbers; //set in parse to actual number of locos in lc list
@@ -52,6 +68,7 @@ const int buttonPin3 = D3;     // the number of the pushbutton pin
 const int buttonPin5 = D5;     // the number of the pushbutton pin
 const int buttonPin6 = D6;     // the number of the pushbutton pin
 const int buttonPin7 = D7;     // the number of the pushbutton pin
+
 int buttonState3 = 0;         // variable for reading the pushbutton status
 int buttonState4 = 0;         // variable for reading the pushbutton status
 int buttonState5 = 0;         // variable for reading the pushbutton status
@@ -89,7 +106,7 @@ delay(10);
   Serial.print(F(  "                    revision:"));
   Serial.println(ver);
   Serial.println(F("-----------------------------------------------------------"));
-  WiFi.setOutputPower(0.0); //  0 sets transmit power to 0dbm to lower power consumption, but reduces usable range.. try 30 for extra range
+  //WiFi.setOutputPower(20); //  0 sets transmit power to 0dbm to lower power consumption, but reduces usable range.. try 30 for extra range
 
 #ifdef _Use_Wifi_Manager
    WiFiManager wifiManager;  // this  stores ssid and password invisibly  !!
@@ -99,7 +116,7 @@ delay(10);
 #else    
 
   WiFi.mode(WIFI_STA);  //Alternate "normal" connection to wifi
-  WiFi.setOutputPower(30);
+ // WiFi.setOutputPower(30);
   WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
   Serial.print(F("Trying to connect to {"));  Serial.print(wifiSSID.c_str());Serial.print(F("} "));
   while (WiFi.status() != WL_CONNECTED) {delay(500);Serial.print(".");}
@@ -145,7 +162,43 @@ void Picture(){ //Essential to use GIMP to export the pictures as 1 bit XBM form
   display.drawXbm(1,1, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
   //display.display();
 }
+void _SetupOTA(String StuffToAdd){
+  String Name;
+  // ota stuff  Port defaults to 8266
+  // ArduinoOTA.setPort(8266);
+  // Hostname defaults to esp8266-[ChipID]
 
+
+  Name="ClientThrottle(";
+ Name=Name+StuffToAdd;
+ Name=Name+")";
+ Serial.printf("--- Setting OTA Hostname <%s> -------------\n",Name.c_str());
+  Serial.printf("------------------------------------------------------\n");
+ ArduinoOTA.setHostname(Name.c_str());
+  // No authentication by default
+  //ArduinoOTA.setPassword((const char *)"123");
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
+  //---------------------end ota stuff -------
+   
+}
 void setup() {
   // init serial port
   Serial.begin(115200);
@@ -153,10 +206,15 @@ void setup() {
   // set the builtin LED pin to work as an output
  pinMode(LED_BUILTIN, OUTPUT);
   
- pinMode(buttonPin3, INPUT_PULLUP);
+ pinMode(buttonPin3, INPUT_PULLUP); // the number of the pushbutton pin
  pinMode(buttonPin5, INPUT_PULLUP);
  pinMode(buttonPin6, INPUT_PULLUP);
  pinMode(buttonPin7, INPUT_PULLUP);
+ 
+#ifdef Rotary
+pinMode(EncoderPinA, INPUT_PULLUP);   // rotary encoder pins
+pinMode(EncoderPinB, INPUT_PULLUP);
+#endif
   // init the display
   display.init();
   
@@ -168,14 +226,15 @@ void setup() {
  display.setFont(ArialMT_Plain_10);
  
  Picture();
- display.drawString(64, 32, "Looking for WiFi");display.display();
+ display.drawString(64, 28, "Looking for WiFi");
+ display.drawString(64, 48, SSID_RR);
+ display.display();
  delay(1000);
 //  display.flipScreenVertically();  
 
-connects=0;
-
- Status();
-
+ connects=0;
+ Status(); 
+ _SetupOTA("--"); // set the nickname ?
  Picture();
   display.drawString(64, 32, "WiFi Connected"); display.display();delay(1000);
   char MsgTemp[127];
@@ -189,6 +248,16 @@ connects=0;
   delay(1000);  
   
 // initial defaults
+#ifdef Rotary
+ThumbWheel.write(0);
+ThrottlePosition  = 0;
+LastThrottlePosition=0;
+ThrottleClicks=-999;
+LocoUpdated=true;
+#endif
+
+buttonpressed=false;
+
 MenuLevel=0;
 locoindex=1;
 fnindex=3;
@@ -206,19 +275,39 @@ LOCO_id[0]="this is an unikely name";
   MQTT_Loop(); // for client.loop(); //gets wifi messages etc..
  }
  
-void loop() {
-  
- 
+void loop() {  
+  // turn off the LED
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(10);
+#ifdef Rotary
+  long ThrottlePos;
+  ThrottlePos = ThumbWheel.read();
+  if (ThrottlePos != ThrottleClicks ) {
+    ThrottleClicks = ThrottlePos;
+    ThumbWheel.write(ThrottleClicks);
+    ThrottlePosition=int(ThrottleClicks/4);
+   //Serial.print("Throttleclicks  = ");Serial.print(ThrottleClicks); // un comment for debug
+   //Serial.print (" throttlepos:"); Serial.print(ThrottlePosition);   // un comment for debug
+   //Serial.print (" lastthrottlepos:"); Serial.println(LastThrottlePosition);   // un comment for debug
+   
+if(!EncoderMoved){    EncoderMoved=true; EncoderMovedAt=millis();
+     if ((ThrottlePosition-LastThrottlePosition)>=1){Serial.print("<");Serial.print(ThrottlePosition);
+          LocoUpdated=false;ButtonUp(MenuLevel);LastThrottlePosition=ThrottlePosition;}
+     if ((ThrottlePosition-LastThrottlePosition)<=-1){Serial.print(">");Serial.print(ThrottlePosition);
+          LocoUpdated=false;ButtonDown(MenuLevel);LastThrottlePosition=ThrottlePosition;}
+}
+             }
+   if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate for encoder
+   if (!LocoUpdated){SetLoco(locoindex,ThrottlePosition); LocoUpdated=true;}
+#endif 
+      //
   display.clear();   // clear the screen get loco list if not  
   
   MQTT_DO();
-  buttonpressed=false; 
-  DoDisplay(MenuLevel);
+  DoDisplay(MenuLevel);  // update the display
 
-//  if (y>=64){y=0;}
-  // turn off the LED
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(100);
+
+
   
 buttonState3 = digitalRead(buttonPin3);
 buttonState5 = digitalRead(buttonPin5);
@@ -226,53 +315,31 @@ buttonState6 = digitalRead(buttonPin6);
 buttonState7 = digitalRead(buttonPin7);
 
 //Serial.print(" Buttons 3<");Serial.print(buttonState3);Serial.print("  4<");Serial.print(buttonState4);Serial.print("  5<");Serial.print(buttonState5);Serial.print(">  6<");Serial.print(buttonState6);Serial.print(">  7<");Serial.print(buttonState7);Serial.println(">");
-  // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
-  if (!digitalRead(buttonPin3)) {
-    buttonpressed=true;delay(100);ButtonRight(MenuLevel);
+  // check if the pushbutton is pressed. If it is, the buttonState is false // un comment for debug
+  if (!buttonpressed&&!buttonState3) {
+    buttonpressed=true;ButtonPressTimer=millis();
+   ;ButtonRight(MenuLevel);
           MenuLevel=MenuLevel+1; // nb cannot change MenuLevel in a function that called with menulevel as a variable,
            if (MenuLevel>= 3){MenuLevel=0;}
       }
-  if (!digitalRead(buttonPin5)) {
-    buttonpressed=true;delay(100);
+  if (!buttonpressed&&!buttonState5) {
+    buttonpressed=true;ButtonPressTimer=millis();
+
     ButtonSelect(MenuLevel);     
       } 
-  if (!digitalRead(buttonPin6)) {
-    buttonpressed=true;delay(100);
+  if (!buttonpressed&&!buttonState6) {
+    buttonpressed=true;ButtonPressTimer=millis();
+
     ButtonUp(MenuLevel);
     } 
-  if (!digitalRead(buttonPin7)) {
-    buttonpressed=true;delay(100);
-    ButtonDown(MenuLevel);
+  if (!buttonpressed&&!buttonState7) {
+    buttonpressed=true;ButtonPressTimer=millis();
+        ButtonDown(MenuLevel);
     } 
-if (!buttonpressed) {ButtonPressTimer=millis();}
+if (millis()-ButtonPressTimer>=300) {buttonpressed=false;}
 
-
-
- 
-
-  
-  // display text on the screen
-
-  //display.invertDisplay();
-//  if (!buttonpressed){
-// display.drawString(64, y%64, "The screen");
-// display.drawString(64, (y+16)%64, "is working!");
-//  } 
-// y++;  // move text down 1 pixel next time and increment progress bar 
-
-
-//display.drawString(64,20,LOCO_id[locoindex]);
-  
-  //display.fillCircle(64, 32, y);
-  //drawProgressBar(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t progress);
- // display.drawProgressBar(0, 58,127,6, ((y*100)/64));
-
- 
- 
-  // update the display
- 
- 
-  // turn on the LED
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1);
+  ArduinoOTA.handle();
+  // turn on the green on board LED
+ //digitalWrite(LED_BUILTIN, LOW);
+ //delay(1);
 }

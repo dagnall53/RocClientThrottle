@@ -7,7 +7,7 @@ extern bool directionindex;
 extern int LocoNumbers;
 //extern int y;
 extern uint32_t ButtonPressTimer;
-
+extern uint32_t LcPropsEnabled;
 extern byte ParseIndex;
 extern bool AllDataRead;
 
@@ -34,12 +34,19 @@ void drawImageDemo() {
     
 }
 
+extern long ThrottlePosition;
+extern bool EncoderMoved;
+
+bool LastDir;
+
 void SetLoco(int locoindex,int speedindex){
+  bool Dir;
    char MsgTemp[200];
   int cx;
   int SpeedSelected;
   SpeedSelected=0;
-  
+// new for rotary encoder, take out the speed steps
+#ifndef Rotary
 switch (abs(speedindex)){
   case 0:
   SpeedSelected=0;
@@ -60,13 +67,23 @@ switch (abs(speedindex)){
   SpeedSelected=LOCO_V_max[locoindex].toInt();
      break;
 } 
+#endif
+
+#ifdef Rotary
+SpeedSelected=speedindex;
+#endif
 // if (speedindex>=0){cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
  //     else{cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" fn=\"false\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
 
- if (speedindex>=0){cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
-      else{cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+Dir=LastDir;
+if (speedindex>=1){Dir=true;}
+if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when speed = 0 it uses the last direction set. 
 
-  Serial.print(LOCO_id[locoindex]);Serial.println("<");Serial.print(MsgTemp);Serial.println(">");
+ if (Dir) {LastDir=true;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+      else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
+
+  //Serial.print(LOCO_id[locoindex]);
+  Serial.print(" <");Serial.print(MsgTemp);Serial.println(">");
   MQTTSend("rocrail/service/client",MsgTemp);
 }
 bool LightsState;
@@ -153,10 +170,14 @@ if (LocoNumbers<=0){
      display.drawString(64,1,LOCO_id[locoindex]);
     }
  //show speed 
+ SpeedSelected="";
+ #ifndef Rotary
     display.drawString(25,28,"Speed:");
     display.drawString(60,28,SpeedIndexString);
    // SpeedSelected="STOP";
    // Serial.print(SpeedSelected);
+
+   
 switch (abs(speedindex)){
   case 0:
   SpeedSelected="STOP";
@@ -177,6 +198,14 @@ switch (abs(speedindex)){
   SpeedSelected=LOCO_V_max[locoindex];
      break;
 }
+
+
+#endif
+
+#ifdef Rotary
+SpeedSelected=ThrottlePosition;
+display.drawString(25,28,"Speed:");
+#endif
 
 display.drawString(90,28,SpeedSelected);
 
@@ -243,7 +272,9 @@ switch (MenuLevel){
  break;
  case 1:  // top level
  speedindex=speedindex+1; // works better to increment with this button
- SetLoco(locoindex,speedindex);
+ #ifndef Rotary
+   SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+ #endif
  break;
  case 2:
  fnindex=fnindex+1;
@@ -269,7 +300,9 @@ switch (MenuLevel){
  break;
  case 1:  // level 1
  speedindex=speedindex-1;
- SetLoco(locoindex,speedindex);
+  #ifndef Rotary
+     SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+ #endif
  break;
  case 2:
  fnindex=fnindex-1;
@@ -290,7 +323,10 @@ void ButtonRight(int MenuLevel){
 switch (MenuLevel){
   
  case 0:  // top level
- 
+      #ifdef Rotary
+       ThrottlePosition=0; ThumbWheel.write(0); // set Throttle pos to zero  
+
+      #endif
  break;
 
  default:
@@ -308,26 +344,35 @@ void ButtonSelect(int MenuLevel){
 switch (MenuLevel){
   
  case 0:  // top level
- if (LocoNumbers<=0){    
+ if (LocoNumbers<=0){   
  Serial.print("sending Loco info request   ");
  Serial.println("<model cmd=\"lclist\" />");
+  LcPropsEnabled=millis()+1500; // allow 1.5 sec for inital reading of props list: After this the Mqtt parse is disabled. 
   ParseIndex=0;
   AllDataRead=false;
   MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
   
  }
  else {     
-             SoundLoco(locoindex,2);
+       SoundLoco(locoindex,2);
       }
  break;
 
  case 1:
+ #ifndef Rotary
  if (speedindex==0){ //toot fn (index) 
      SoundLoco(locoindex,2);
  }
  else{
    speedindex=0;
    SetLoco(locoindex,speedindex);}
+#endif
+    #ifdef Rotary
+      if (ThrottlePosition==0){ SoundLoco(locoindex,2); }//toot fn 2 (loco index) 
+       else{ ThrottlePosition=0; ThumbWheel.write(0); SetLoco(locoindex,ThrottlePosition);}
+
+#endif
+   
  break;
  case 2:
   SoundLoco(locoindex,fnindex);

@@ -6,9 +6,10 @@
 #define SignalOFF HIGH
 
 
-// put these in pubsubclient.h
+// ----------Put these in pubsubclient.h
 #define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
 #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+// ---------- This is vital!!
 
 #include <PubSubClient.h>
 #include <WiFiClient.h>
@@ -39,7 +40,7 @@ boolean  Data_Updated;
 uint32_t EPROM_Write_Delay;
 uint32_t Ten_Sec;
 
-
+uint32_t LcPropsEnabled;
 boolean Message_Decoded;
 extern bool AllDataRead;
 
@@ -162,17 +163,23 @@ char PayloadAscii[100];
 //    y= MQTT_MAX_PACKET_SIZE;
 //    Serial.print((100*Length)/MQTT_MAX_PACKET_SIZE);Serial.println(F("% msg size used"));
     // Print message size whilst finding out if the pubsub client max message size is adequate..
-       for (int i=0; i<=50;i++){PayloadAscii[i]=char(payload[i]); }
+
+// make PayloadAscii so we can use strncmp 
+   for (int i=0; i<=50;i++){PayloadAscii[i]=char(payload[i]); }
+       
    if (strncmp("<lc id=\"",PayloadAscii,8)==0){
-      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ Serial.print(F(" Found loco props list  <"));Serial.print(ParseIndex);Serial.println(">");
+      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ 
       ThisID=Attrib(1,"<lc id=\"",payload,Length);
-      if (ThisID==LOCO_id[locoindex]){Serial.print("this is a response for somethng we are working with at the moment");}
-         else{
-                if (ThisID==LOCO_id[0]){Serial.print(" Read this data before "); AllDataRead=true;    }
-                else{ParsePropsLocoList(ParseIndex,payload,Length);  
-                ParseIndex++;}
+      if (ThisID==LOCO_id[locoindex]){//Serial.print("this is a response for somethng we are working with at the moment");
+                                     }
+         else{if (ThisID==LOCO_id[0]){//Serial.print(" Read this loco before "); //This is only triggered if the lcprops list is somehow re-triggered
+                                        AllDataRead=true;}
+                else{if (millis()<=LcPropsEnabled){LcPropsEnabled=millis()+1500;// give yourself another second and a half to get more data...
+                                                   Serial.print(F(" Found loco props list  <"));Serial.print(ParseIndex);Serial.println(">");
+                                                   ParsePropsLocoList(ParseIndex,payload,Length);  
+                                                   ParseIndex++;}}
              }  
-                Message_Decoded = true;}
+       Message_Decoded = true;}
       
       }  
 
@@ -249,6 +256,7 @@ void MQTT_Loop(void){
     client.loop(); //gets wifi messages etc..
 }
 extern uint16_t HandControlID;
+
 void DebugMsgSend (char* topic, char* Debug_Payload) { // use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
   char DebugMsgLocal[127];
     char DebugMsgTemp[127];
