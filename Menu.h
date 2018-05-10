@@ -346,7 +346,7 @@ switch (MenuLevel){
  case 0:  // top level
  if (LocoNumbers<=0){   
  Serial.print("sending Loco info request   ");
- Serial.println("<model cmd=\"lclist\" />");
+ Serial.println("<model cmd=\"lcprops\" />");
   LcPropsEnabled=millis()+1500; // allow 1.5 sec for inital reading of props list: After this the Mqtt parse is disabled. 
   ParseIndex=0;
   AllDataRead=false;
