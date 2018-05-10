@@ -95,7 +95,17 @@ void ConnectionPrint() {
   //Serial.println("-----------------------------------------------------------");      
  
 }
-
+void OLED_Display(char* L1,char* L2,char* L3){
+  display.clear();
+  if (L1==""){
+    Picture(); display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setFont(ArialMT_Plain_10);
+    }
+  display.drawString(64, 10, L1);
+  display.drawString(64, 24, L2);
+  display.drawString(64, 38, L3);
+  display.display();
+  }
 void Status(){
 delay(10);
   Serial.println();Serial.println();
@@ -139,7 +149,7 @@ delay(10);
   Serial.print(F(" Mosquitto will first try to connect to:"));
   Serial.println(mosquitto);
   MQTT_Setup();
-  Serial.println(F("-----------MQTT NOW setup ----------------")); 
+  //Serial.println(F("-----------MQTT NOW setup ----------------")); 
 }
 
 
@@ -226,9 +236,7 @@ pinMode(EncoderPinB, INPUT_PULLUP);
  display.setFont(ArialMT_Plain_10);
  
  Picture();
- display.drawString(64, 28, "Looking for WiFi");
- display.drawString(64, 48, SSID_RR);
- display.display();
+ OLED_Display("","Looking for WiFi",SSID_RR);
  delay(1000);
 //  display.flipScreenVertically();  
 
@@ -239,10 +247,9 @@ pinMode(EncoderPinB, INPUT_PULLUP);
   display.drawString(64, 32, "WiFi Connected"); display.display();delay(1000);
   char MsgTemp[127];
   int cx;
-  cx= sprintf (MsgTemp, " IP: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
- Picture();
-  display.drawString(64, 32, MsgTemp);
-  display.display();  display.setFont(ArialMT_Plain_16);
+  cx= sprintf (MsgTemp, " @: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
+  display.drawString(64, 48, MsgTemp);
+  display.setFont(ArialMT_Plain_16);
   delay(1000); 
   Picture();display.display();
   delay(1000);  

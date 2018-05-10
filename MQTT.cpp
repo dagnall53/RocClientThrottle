@@ -315,7 +315,11 @@ Serial.printf("@<%02d:%02d:%02ds>:%s",hrs,mins,secs,MSG.c_str());
   delay(5);
 }
 extern uint8_t wifiaddr;
-void reconnect() {
+extern void OLED_Display(char* L1,char* L2,char* L3);
+void reconnect() {    
+  char DebugMsgTemp[127];
+    int cx;
+
   char ClientName[80];
   char myName[15] = "HandControl:";
   sprintf(ClientName, "%s%i", myName, wifiaddr);
@@ -324,51 +328,48 @@ void reconnect() {
   PrintTime(" Attempting MQTT (re)connection. Attempt #");
   Serial.println(connects);
   while (!client.connected()) {
-   
-    Serial.print(" trying:");
-    Serial.print(mosquitto);Serial.print("  ");Serial.print(ClientName);
-    Serial.println("  ");
-    // Attempt to connect
+    Serial.print("I am  <");Serial.print(ClientName);  Serial.print(">  ");
+    Serial.print(" and will try to connect to MQTT broker at:");
+    Serial.print(mosquitto);
+  // Attempt to connect
 
     if (client.connect(ClientName)) {
       Serial.println();
-      DebugSprintfMsgSend( sprintf ( DebugMsg, "%s Connected at:%d.%d.%d.%d",ClientName,ip0,ip1,subIPH,subIPL));
-   /* if (mosquitto[3] != RN[14] ){   //RN[14] is the MQQT broker address, save if changed
-       RN[14]=mosquitto[3];
-       WriteEEPROM();
-       Data_Updated=true; 
-       EPROM_Write_Delay = millis()+Ten_Sec; 
-                                }
-     */ // can advise this node is connected now:
-       DebugSprintfMsgSend( sprintf ( DebugMsg, "%s Connected at:%d.%d.%d.%d",ClientName,ip0,ip1,subIPH,subIPL));
-      
-      //FlashMessage(" ------Connected to MQQT---------",1,400,100);
-      // ... and now subscribe to topics  http://wiki.rocrail.net/doku.php?id=rocnet:rocnet-prot-en#groups
-      
+      //DebugSprintfMsgSend( sprintf ( DebugMsg, "%s Connected at:%d.%d.%d.%d",ClientName,ip0,ip1,subIPH,subIPL));
+   /* // this code only used if we are going to try a search for the broker..
+      if (mosquitto[3] != RN[14] ){   //RN[14] is the MQQT broker address, save if changed
+                                  RN[14]=mosquitto[3];
+                                  WriteEEPROM();
+                                  Data_Updated=true; 
+                                  EPROM_Write_Delay = millis()+Ten_Sec; 
+                                  }
+     */ // we can advise this node is now connected 
      
+      DebugSprintfMsgSend( sprintf ( DebugMsg, "%s Connected at:%d.%d.%d.%d",ClientName,ip0,ip1,subIPH,subIPL));
+      Serial.println(DebugMsg);
+        // ... and now subscribe to topics  http://wiki.rocrail.net/doku.php?id=rocnet:rocnet-prot-en#groups
       client.subscribe("rocrail/service/info", 1 ); // server information
-    
-     client.subscribe("rocnet/ck", 1 ); // Clock synch  information
+      client.subscribe("rocnet/ck", 1 ); // Clock synch  information
      // client.subscribe("rocrail/service/client", 1 ); // an we see client data? test..       
      // delay(100);
-
-       EPROM_Write_Delay = millis();
-     
-    } else {
-      Serial.print(" failed, rc=");
-      //Serial.print(client.state()); 
-     // 
-     connects=connects+1;
-   // if (connects>=5){  mosquitto[3] = mosquitto[3]+1;
-   // if (mosquitto[3]>=50){mosquitto[3]=3;}   }   // limit mqtt broker to 3-50 to save scan time
-    delay(100);
-    client.setServer(mosquitto, 1883);   // Hard set port at 1833
-      Serial.println(" try again ...");
+     EPROM_Write_Delay = millis();
+                                   } else {
+     Serial.println(); Serial.print("Failed to connect to MQTT broker ");
+     // this code only used if we are going to try a search for the broker..
+     //connects=connects+1;
+     // if (connects>=5){  mosquitto[3] = mosquitto[3]+1;
+     // if (mosquitto[3]>=50){mosquitto[3]=3;}   }   // limit mqtt broker to 3-50 to save scan time
+     delay(100);
+     cx= sprintf ( DebugMsgTemp,  "at:%d.%d.%d.%d",mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
+     Serial.println (DebugMsgTemp); 
+     OLED_Display("","looking for broker",DebugMsgTemp);
+     Serial.println(" trying again ..."); 
+     client.setServer(mosquitto, 1883);   // Hard set port at 1833  
       //FlashMessage(".... Failed connect to MQTT.. attempting reconnect",4,250,250);
       // Wait   before retrying  // perhaps add flashing here so when it stops we are connected?
       delay(100);
-      digitalWrite (LED_BUILTIN , SignalOFF) ; ///   turn OFF
-    }
+      //digitalWrite (LED_BUILTIN , SignalOFF) ; ///   turn OFF
+                                         }
   }
 }
 
