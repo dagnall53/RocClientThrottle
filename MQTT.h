@@ -3,15 +3,15 @@
   #include "Arduino.h"
 // planning to use MQTT for sorting out better library partitioning 
 
-// DEBUG, use with mosquitto_sub -h 127.0.0.1(Or your broker address)  -i "CMD_Prompt" -t debug -q 0
-#define MAXLOCOS 126  // the number we can store (+1 as we use 0) bigger than this and I get crashing errors but I have not traced their sourcem...
+// DEBUG, use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
+#define MAXLOCOS 30  // the number we can store (+1 as we use 0) (limited by length of mqtt message!
 
 //void testConnection  (int Number);
-
+void SetWordIn_msg_loc_value(uint8_t* msg, uint8_t firstbyte, int value);
 int Count(unsigned int n,char* id, byte* data,unsigned int Length) ;
 char* Attrib(unsigned int Nth,char* id, byte* data,unsigned int Length);// to find string id in data and count  (max 65k)
 void MQTTFetch (char* topic, byte* payload, unsigned int Length) ;
-
+void MQTTRocnetSend (char* topic, uint8_t * payload);  //replaces rocsend
 void MQTTSend (char* topic, char * payload) ;
 
 
