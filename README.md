@@ -9,7 +9,8 @@ This code allows for up to 126 locos. Above this the code gets unstable.
 If you have >100 locos you should be considering another "proper" throttle!  
 
 ## Use
-after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" and the list should populate with your list of locos from Rocrail. 
+Compile using the Board = "NodeMCU 1.0 (ESP12E Module)" option.  
+Then, after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" and the list should populate with your list of locos from Rocrail. 
 Press the button "up" or "down" to select the loco you want to use.
 Press "right" (Away from the OLED) and the screen will sshow the loco name, and "Speed:0 STOP". The throttle uses the Rocrail loco speeds V_min, V_Mid, V_Cru and V_Max as set for the loco in Rocrail, and can select these speeds in forwards and reverse by selecting Up and down. Pressing the button "in" when moving and the speed is set to 0. Pressing the putton in when the sped iIS 0 will send F2 to the loco which on most is a toot. 
 From Speed, press "right" to access a screen where Fn 1-8 can be momentarily triggered. This screen also allows the lights to be turned on and off in position F0. 
