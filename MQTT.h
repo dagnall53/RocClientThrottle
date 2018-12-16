@@ -4,7 +4,7 @@
 // planning to use MQTT for sorting out better library partitioning 
 
 // DEBUG, use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
-#define MAXLOCOS 30  // the number we can store (+1 as we use 0) (limited by length of mqtt message!
+#define MAXLOCOS 100  // the number we can store (+1 as we use 0) (limited by length of mqtt message!
 
 //void testConnection  (int Number);
 void SetWordIn_msg_loc_value(uint8_t* msg, uint8_t firstbyte, int value);

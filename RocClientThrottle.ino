@@ -1,4 +1,4 @@
-#define ver 003
+#define ver 004
 
 //#define Rotary  // comment this out if not using the additional rotary switch or if you want speed increments of 10 and not the locolist Vx.. steps
 
@@ -283,8 +283,8 @@ RightIndexPos=3;
 LeftIndexPos=0;
 directionindex=true;
 LocoNumbers=0; 
-AllDataRead=false;
-LOCO_id[0]="this is an unikely name";
+AllDataRead=false; 
+LOCO_id[0]="This is an unlikely name";
 }
 
  void MQTT_DO(void){

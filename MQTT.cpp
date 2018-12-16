@@ -302,31 +302,24 @@ for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
    
 // is it a service info?
  if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
-     /* if (strlen(Attrib(1,"\" id=\"",payload,Length))>=1){;  // {does it contain " id="}
-      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)) { Serial.print(F(" Found switch properties list  <"));Serial.print(ParseIndex);Serial.println(">");
-      ThisID=Attrib(1,"\" id=\"",payload,Length); 
-      if (ThisID==LOCO_id[switchindex]){Serial.print("this is a response for somethng we are working with at the moment");}
-      else {
-           if (ThisID==LOCO_id[0]){Serial.print(" Read this data before "); AllDataRead=true;    }
-           else{ParseSwitchList(ParseIndex,payload,Length); ParseIndex++;}
-      } 
-          Message_Decoded = true;}
-        } 
-        */
-  if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){;  // {does it contain "<lc id="       
-   if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ Serial.print(F(" Found loco properties list  <"));Serial.print(ParseIndex);Serial.println(">");
-   ThisID=Attrib(1,"<lc id=\"",payload,Length);
-   if (ThisID==LOCO_id[locoindex]){Serial.print("this is a response for somethng we are working with at the moment");
-                                     }
-   else {
-         if (ThisID==LOCO_id[0]){Serial.print(" Read this loco before - switching off ParseLoco- "); //This is only triggered if the lcprops list is somehow re-triggered and we read again loco[0]
-                                        AllDataRead=true;}
-                else{ParsePropsLocoList(ParseIndex,payload,Length); ParseIndex++;}
-             }  
-       Message_Decoded = true;}
-       } 
+
+  if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ // {does it contain "<lc id="       
+      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ ThisID=Attrib(1,"<lc id=\"",payload,Length); // if we have room and we have not set alldataread, get the name of this loco
+          if (ThisID==LOCO_id[locoindex]){ // Is this is a  a response for somethng we have sent a command to");
+                                         }
+             else { // this is may be data about a new loco ?
+                  for (int i=0; i<=(MAXLOCOS) ;i++) { 
+                          if (ThisID==LOCO_id[i]){ Serial.print(" Seen this loco before - switching off ParseLoco- ");  
+                                                  AllDataRead=true;} //end of if
+                                                     }// end of for i loop checking all previously stored loconames
+                   if (!AllDataRead) {ParsePropsLocoList(ParseIndex,payload,Length); 
+                                      Serial.print(F(" Found switch properties list  <"));Serial.print(ParseIndex);Serial.println(">");
+                                      ParseIndex++;}                                    
+                   }// end of "else"   
+       Message_Decoded = true;} 
+       } // It was a "<lc id=" message and we have dealt with it
         
- }
+    }// end of check and does not contain <lc id=
 // known unimportant (to me) messages
      if (strncmp("<exception text=",PayloadAscii,16)==0){
          Message_Decoded = true; }  

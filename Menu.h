@@ -38,7 +38,7 @@ extern long ThrottlePosition;
 extern bool EncoderMoved;
 
 bool LastDir;
-
+int LastLoco;
 void SetLoco(int locoindex,int speedindex){
   bool Dir;
    char MsgTemp[200];
@@ -71,11 +71,12 @@ switch (abs(speedindex)){
 
 
 Dir=LastDir;
+LastLoco=locoindex;
 if (speedindex>=1){Dir=true;}
 if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when speed = 0 it uses the last direction set. 
 
- if (Dir) {LastDir=true;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected);}
-      else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"RocClientThrottle\" />",Str2Chr(LOCO_id[locoindex]),abs(SpeedSelected));}
+ if (Dir) {LastDir=true; cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"%s\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected,ThrottleName);}
+      else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"%s\" />",Str2Chr(LOCO_id[locoindex]),abs(SpeedSelected),ThrottleName);}
 
   //Serial.print(LOCO_id[locoindex]);
   Serial.print(" <");Serial.print(MsgTemp);Serial.println(">");
@@ -325,23 +326,45 @@ if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
 
 void ButtonRight(int MenuLevel){
   // nb Looks like you cannot change MenuLevel in a function that called with MenuLevel as a variable, presumably it sets internal variable only?
-switch (MenuLevel){
+//debug
+//Serial.print("DEBUG Right button MenuLevel<"); Serial.print(MenuLevel);
+//Serial.print("> locoindex is<");Serial.print(locoindex);
+//Serial.print("> LastLoco is<");Serial.println(LastLoco);
+// adding bit to send lcprops same as select button
+
+if (LocoNumbers<=0){
+  Serial.print("sending Loco info request   ");
+  Serial.println("<model cmd=\"lcprops\" />");
+  ParseIndex=0;
+  AllDataRead=false;
+  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
+  }
   
+switch (MenuLevel){
  case 0:  // top level 
- speedindex=0;
+ if (LastLoco!=locoindex){
+  //Serial.print("new loco so start at 0 speed");
+      speedindex=0;
       #ifdef Rotary
        ThrottlePosition=0; ThumbWheel.write(0);
        // set Throttle pos to zero  
-
+ 
       #endif
+      }
+      else{
+   //     Serial.print("Same loco");
+      }
  break;
- case 1:  // top level 
- speedindex=0;
+ case 1:  // level 
+ /*if (LastLoco!=locoindex);{Serial.print("new loco case 2 so reset throttle");
+      speedindex=0;
       #ifdef Rotary
        ThrottlePosition=0; ThumbWheel.write(0);
        // set Throttle pos to zero  
 
       #endif
+ }
+ */
  break;
 
  default:
@@ -368,7 +391,7 @@ switch (MenuLevel){
   ParseIndex=0;
   AllDataRead=false;
   MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
-  delay(500);MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />"); // send twice to try to trigger repeat find of first loco and stop further parsing? 
+  //delay(500);MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />"); // send twice to try to trigger repeat find of first loco and stop further parsing? //not needed with v004
    }
  else { SoundLoco(locoindex,2);
        
