@@ -1,6 +1,6 @@
 #define ver 004
 
-//#define Rotary  // comment this out if not using the additional rotary switch or if you want speed increments of 10 and not the locolist Vx.. steps
+#define Rotary  // comment this out if not using the additional rotary switch or if you want speed increments of 10 and not the locolist Vx.. steps
 
 #include <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
 
