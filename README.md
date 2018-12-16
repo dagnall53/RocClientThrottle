@@ -19,11 +19,21 @@ From the Fn selection screen, press "right" again to scroll to the loco selectio
 Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!.
 
 ## Getting the Loco List
-From ver004, The way the throttle gets its "list" of locos has been changed. You can either press "in", or "right", and the throttle will request the locolist from rocrail. IF the throttle sees a loco with a name it has seen already, it assumes it has now seen the whole list and will not add any more locos to its internal list. 
-A bug/feature of this is that if another throttle (including rocrail) sends any speed coommands to a loco BEFORE the throttle sends its locolist response, then the throttle will see a SINGLE loco and assume that this is the complete loco list. This can be useful to set a throttle to a single loco for a beginner, but resetting the throttle and then pressing in or right (befoore aanyone else commands a speed change) will once again allow the throttle to control ANY loco.   
+
+Pressing "Select" OR "Right" both now trigger the Lcprops message, so its easier to get the loco list (My 5 way switches are sometimes hard to "select")
+There is a new check for previously seen locos, BUT IF the throttle sees a lc message loco with a name it has seen already, it immediately assumes it has now seen the whole list and will not add any more locos to its internal list. 
+
+This has some "interesting" consequences..Remember that any rocrail speed change triggers a lc message that can be mistaken for a LCprops response, and you will see that when any throttle (including rocrail) sends speed commands to a loco, the wiireless throttle sees these commands and if it has not got a complete list of locos, will try to add the loco name (but note the speed command does not include Vmax etc or function name parameters) to its internal list of available locos. 
+So, when a SECOND speed command is sent to the same loco, then the wireless throttle code will assume that it has now seen the whole loco list, and it will not allow any more items to be added to its internal loco list. 
+
+This could be useful to set a throttle to a single loco for a beginner (but resetting the throttle and then pressing in or right (before anyone else commands a speed change) will once again allow the throttle to control ANY loco).  BUT note that if you are not using my #rotary define, the code will try to use the Rocrail Vmin, Vcruise,Vmax etc setting, BUT will not have see the real properties, so these will be set to zero, so speed changes will not work. (Function commands to send sounds etc should work). Again, this mmight be a nice feature for beginners, but I doubt it!
+
+You can now also "cycle" the menu levels around and providing you do not change the loco selection, the speed will remain as set. 
+If you do change the loco selection, then the speed will set to zero to prevent mishaps.   
 
 ## Speeds
-Because of the simplicity of the throttle, I decided to use the Rocrail preset speeds, so the slowest the loco can move is the first step, going in 4 stages to V-Max. All these settings will be set per loco and so VMax for one loco will be different from another. So the first acceleration will take the loco to V-Min, followed by V-Mid etc. This is similar in principle to how the automatic control in Rocrail works. 
+Because of the simplicity of the throttle, I decided to use the Rocrail preset speeds if the rotary switch is not used. So the slowest the loco can move is the first Vmin step, going up 4 stages to V-Max. All these settings will be set per loco and so VMax for one loco will be different from another. So the first acceleration will take the loco to V-Min, followed by V-Mid etc. This is similar in principle to how the automatic control in Rocrail works.
+If you are using the rotary switch version, speeds are changed in "1" steps by the rotary control and "10" steps by the up and down buttons. If you are at speed zero, pressing the select (in) button sounds F1. If you are moving, pressing the same button acts as an emergency brake and sets speed zero.
 
 
 ## Hardware
