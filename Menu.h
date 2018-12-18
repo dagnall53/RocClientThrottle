@@ -79,7 +79,7 @@ if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when s
       else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"%s\" />",Str2Chr(LOCO_id[locoindex]),abs(SpeedSelected),ThrottleName);}
 
   //Serial.print(LOCO_id[locoindex]);
-  Serial.print(" <");Serial.print(MsgTemp);Serial.println(">");
+  //Serial.print(" <");Serial.print(MsgTemp);Serial.println(">"); // to help with debug
   MQTTSend("rocrail/service/client",MsgTemp);
 }
 bool LightsState;
@@ -124,18 +124,21 @@ String TopMessage = "Available Locos:";
 TopMessage += (LocoNumbers);
 display.setFont(ArialMT_Plain_10);
 //display.drawProgressBar(0, 58,127,6, ((y*100)/64));
-if (LocoNumbers>=1){
+if (LocoNumbers>=2){
 display.drawString(64,54,TopMessage);}
 switch (MenuLevel){
   
  case 0:  // top level
     display.setFont(ArialMT_Plain_10);
-    display.drawString(64,1,"--- Select Loco ---");
+    if (LocoNumbers>=2){// only display this if we actually have a loco list!
+    display.drawString(64,1,"--- Select Loco ---");}
 if (LocoNumbers<=0){
-  Picture();
+  //Picture();
     display.setFont(ArialMT_Plain_10);
-    display.drawString(64,25," Press to ");
-    display.drawString(64,38,"Refresh Loco List");
+    display.drawString(64,2," Press to ");
+    display.drawString(64,12,"Refresh Loco List");
+    display.drawString(64,44,"or use Rocrail");
+    display.drawString(64,54,"to 'Dispatch' a Loco");
     display.setFont(ArialMT_Plain_16);
     
 }
@@ -170,7 +173,7 @@ if (LocoNumbers<=0){
  SpeedSelected="";
  #ifndef Rotary
     display.drawString(25,28,"Speed:");
-    display.drawString(60,28,SpeedIndexString);
+    //display.drawString(60,28,SpeedIndexString);
     switch (abs(speedindex)){
         case 0:
         SpeedSelected="STOP";
@@ -356,15 +359,34 @@ switch (MenuLevel){
       }
  break;
  case 1:  // level 
- /*if (LastLoco!=locoindex);{Serial.print("new loco case 2 so reset throttle");
-      speedindex=0;
-      #ifdef Rotary
-       ThrottlePosition=0; ThumbWheel.write(0);
-       // set Throttle pos to zero  
 
-      #endif
- }
- */
+ break;
+
+ default:
+  
+ break;
+}
+
+
+}
+
+
+void ButtonLeft(int MenuLevel){
+ 
+if (LocoNumbers<=0){
+  Serial.print("sending Loco info request   ");
+  Serial.println("<model cmd=\"lcprops\" />");
+  ParseIndex=0;
+  AllDataRead=false;
+  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
+  }
+  
+switch (MenuLevel){
+ case 0:  // top level 
+ 
+ break;
+ case 1:  // level 
+
  break;
 
  default:

@@ -119,7 +119,7 @@ char* Attrib(unsigned int Nth,char* id, byte* data,unsigned int Length) {// to f
         // Serial.print("found Nth text at char<");Serial.print(x);Serial.print(">  is<");
                for (int z=0 ;z<=MaxAttribSize;z++) { 
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
-                   if (data[x+Y+z+1]==34){FoundAttrib[z]=0;
+                   if (data[x+Y+z+1]==34){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
                    for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
                    // Serial.println(">");
                    return FoundAttrib;}
@@ -135,11 +135,50 @@ char* Attrib(unsigned int Nth,char* id, byte* data,unsigned int Length) {// to f
  return FoundAttrib;
 }
 
+char* AttribColon(unsigned int Nth,char* id, byte* data,unsigned int Length) {// to find string id (ending in colon) in data and count  (max 65k)
+ int count;int allsame;int Y;
+ unsigned int AttribLength;
+ const int MaxAttribSize =30;
+ char* FoundAttrib;
+ count=0;
+ //id.concat("\"");
+ AttribLength = strlen(id)-1;
 
+// Serial.println();Serial.print("starting search for entry <");Serial.print(Nth);Serial.println("> for <");Serial.print(id);Serial.print("> ... ");
+
+  for (unsigned int x=0 ; x<= Length-AttribLength-20; x++){
+  // for (unsigned int x=0 ; x<= 160; x++){
+  allsame=0;
+  
+  FoundAttrib="";// instantiate string or get problems later!
+  for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
+  
+  for (int y=0;y<=(AttribLength);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; } 
+      }//y loop
+        if (allsame==AttribLength+1){count=count+1;} // count 
+            if (count==Nth){
+        // Serial.print("found Nth text at char<");Serial.print(x);Serial.print(">  is<");
+               for (int z=0 ;z<=MaxAttribSize;z++) { 
+                   //FoundAttrib[z]=char(data[x+Y+z+1]);
+                   if (data[x+Y+z+1]==58){FoundAttrib[z]=0;  // end of data with ascii dec 58 == (:)
+                   for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
+                   // Serial.println(">");
+                   return FoundAttrib;}
+                else{FoundAttrib[z]=char(data[x+Y+z+1]);
+                  //Serial.print(char(data[x+Y+z+1]));  
+                  }
+         }// z loop
+    }
+    
+    //if same
+ 
+   } //x loop
+ return FoundAttrib;
+}
 extern void Picture();
 
 void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
-  // propslist gives just one loco at a time so the attrib nth is 1 every time. but will be stored in index loco
+  // propslist gives just one loco at a time so the Attrib length is 1 every time. but will be stored in index [loco]
       LOCO_id[loco]=Attrib(1,"<lc id=\"",payload,Length);
       LOCO_V_min[loco]=Attrib(1," V_min=\"",payload,Length);
       LOCO_V_mid[loco]=Attrib(1," V_mid=\"",payload,Length);
@@ -148,7 +187,7 @@ void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
       LOCO_spcnt[loco]=Attrib(1," spcnt=\"",payload,Length);
      LocoNumbers=loco+1;
      if (LocoNumbers>=MAXLOCOS-1) {LocoNumbers=MAXLOCOS-1;}
-     Serial.print("Attributes for <");Serial.print(loco);Serial.print("> <");Serial.print(LOCO_id[loco]);
+     Serial.print("Attributes for loco id[");Serial.print(loco);Serial.print("] <");Serial.print(LOCO_id[loco]);
      Serial.print(">  V_min:");Serial.print (LOCO_V_min[loco]);
      Serial.print(" V_mid:");Serial.print (LOCO_V_mid[loco]);
      Serial.print(" V_cru:");Serial.print (LOCO_V_cru[loco]);
@@ -235,9 +274,11 @@ void dump_byte_array(byte* buffer, byte bufferSize) {
   }
 
 String ThisID;
+String ThisSpeed;
 extern int switchindex;
 extern int locoindex;
-
+extern int speedindex;
+extern int MenuLevel;
 void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces rocfetch
   // do a check on length matching payload[7] ??
 char PayloadAscii[100];
@@ -302,9 +343,11 @@ for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
    
 // is it a service info?
  if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
-
-  if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ // {does it contain "<lc id="       
-      if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){ ThisID=Attrib(1,"<lc id=\"",payload,Length); // if we have room and we have not set alldataread, get the name of this loco
+if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ThisID=Attrib(1,"<lc id=\"",payload,Length);}
+  
+ // old version if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ // {does it contain "<lc id="   NOTE for self. add a second check for "prev_id=" as well to only capture lcprops messages?
+    if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&(strlen(Attrib(1,"prev_id=\"",payload,Length))>=1)){ // {does it contain "<lc id="  and "prev_id=" as well is should only capture lcprops messages?
+       if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){  // if we have room and we have not set alldataread, get the name of this loco
           if (ThisID==LOCO_id[locoindex]){ // Is this is a  a response for somethng we have sent a command to");
                                          }
              else { // this is may be data about a new loco ?
@@ -313,17 +356,90 @@ for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
                                                   AllDataRead=true;} //end of if
                                                      }// end of for i loop checking all previously stored loconames
                    if (!AllDataRead) {ParsePropsLocoList(ParseIndex,payload,Length); 
-                                      Serial.print(F(" Found switch properties list  <"));Serial.print(ParseIndex);Serial.println(">");
+                                      Serial.print(F(" Loco list contains <"));Serial.print(ParseIndex+1);Serial.println("> Locos");
                                       ParseIndex++;}                                    
                    }// end of "else"   
        Message_Decoded = true;} 
-       } // It was a "<lc id=" message and we have dealt with it
+       } // It was a "<lc id=" / prev_id message and we have dealt with it
+   else{ if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&
+             (strlen(Attrib(1,"V=\"",payload,Length))>=1)     & 
+             (strlen(Attrib(1,"prev_id=\"",payload,Length))>=0)){  //{ // is LCid and V= BUT NOT "prev_id=\"
+              Serial.print(ThisID);
+              Serial.print(F(" Velocity change seen for:"));
+              ThisSpeed=Attrib(1,"V=\"",payload,Length);
+              Serial.print(ThisID);
+              
+              Serial.print("  ");
+              Serial.println(ThisSpeed);
+              if (ThisID==LOCO_id[locoindex]){
+                if(strlen(Attrib(1,"dir=\"false\"",payload,Length))>=1){
+                speedindex= -ThisSpeed.toInt();}
+                else {speedindex= ThisSpeed.toInt();}
+                }
+              
+             }
+    
+        }
+// release throttle..
+if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){
+      ThisID=Attrib(1,"<lc id=\"",payload,Length);  // get the name now..
+      if (strlen(Attrib(1,"cmd=\"release\"",payload,Length))>=1){ // is this the release message 
+         //Serial.println("-");
+         Serial.print("Throttle Release for ");
+         Serial.println(ThisID);
+          if ((ThisID==LOCO_id[0])&&(LocoNumbers==1)){
+          Serial.print(F("Throttle Release is for me!"));
+          ThisID="This is an unlikely name";
+          LOCO_id[0]=ThisID;
+          LocoNumbers=0;
+          ParseIndex=0;
+          AllDataRead=false;
+          MenuLevel=0;
+                 }}
+          Message_Decoded = true;
+       }
+      
         
-    }// end of check and does not contain <lc id=
-// known unimportant (to me) messages
+    }// end of service info check and does not contain <lc id=
+// Throttle dispatch message
+if (LocoNumbers<=0){// only do this if we have no loco list!
+         if (strncmp("<exception text=\"dispatch loco ",PayloadAscii,31)==0){
+          Serial.print(F("Throttle Dispatch seen <"));
+          ThisID=AttribColon(1,"<exception text=\"dispatch loco ",payload,Length);
+          Serial.print(ThisID);Serial.println(">");
+          LOCO_id[0]=ThisID;
+          LocoNumbers=1;
+          MenuLevel=1;
+          ParseIndex=0;
+          AllDataRead=true;
+         Message_Decoded = true; }  
+                   }
+// release throttle..
+//  if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&(strlen(Attrib(1,"cmd=\"release",payload,Length))>=1)){ // does it contain "<lc id="  and "cmd=\"release" as well 
+//       Serial.print(F("Throttle Release "));
+//       Message_Decoded = true;}
+/*if (LocoNumbers==1){// only do this if we have a single loco
+  if (strlen(Attrib(1,"cmd=\"release",payload,Length))>=1){
+          Serial.print(F("Throttle Release "));
+          ThisID=Attrib(1,"<lc id=\"",payload,Length);
+          if (ThisID==LOCO_id[0]){
+          Serial.print(F("Throttle Release for me!"));
+          ThisID="This is an unlikely name";
+          LOCO_id[0]=ThisID;
+          LocoNumbers=0;
+          ParseIndex=0;
+          AllDataRead=false;
+          MenuLevel=0;
+         Message_Decoded = true; }  
+                }
+                   }
+*/
+                   
+// known but unimportant (to me) messages
      if (strncmp("<exception text=",PayloadAscii,16)==0){
          Message_Decoded = true; }  
      if (strncmp("<clock divider=",PayloadAscii,15)==0){
+      //Serial.print(F("Clock msg<"));
          Message_Decoded = true; }
      if (strncmp("<program modid=",PayloadAscii,15)==0){
          Message_Decoded = true; }

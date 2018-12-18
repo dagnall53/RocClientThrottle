@@ -1,4 +1,4 @@
-#define ver 004
+#define ver 005
 
 #define Rotary  // comment this out if not using the additional rotary switch or if you want speed increments of 10 and not the locolist Vx.. steps
 
@@ -68,15 +68,17 @@ SSD1306Wire  display(0x3c, D1, D2);
 
  
 int y;
-const int buttonPin3 = D3;     // the number of the pushbutton pin
-const int buttonPin5 = D5;     // the number of the pushbutton pin
-const int buttonPin6 = D6;     // the number of the pushbutton pin
-const int buttonPin7 = D7;     // the number of the pushbutton pin
+const int buttonPin3 = D3;     // the number of the right pushbutton pin on wemos 18650 oled board
+const int buttonPin5 = D5;     // the number of the select pushbutton pin
+const int buttonPin6 = D6;     // the number of the up pushbutton pin
+const int buttonPin7 = D7;     // the number of the left pushbutton pin
+const int buttonPin8 = D8;    // left NOT used yet 
 bool buttonState3 = 0;         // variable for reading the pushbutton status
 bool buttonState4 = 0;         // variable for reading the pushbutton status
 bool buttonState5 = 0;         // variable for reading the pushbutton status
 bool buttonState6 = 0;         // variable for reading the pushbutton status
 bool buttonState7 = 0;         // variable for reading the pushbutton status
+bool buttonState8 = 0;         // variable for reading the pushbutton status
 bool buttonpressed;  
 uint32_t ButtonPressTimer;
 // display and selection stuff
@@ -239,6 +241,7 @@ void setup() {
  pinMode(buttonPin5, INPUT_PULLUP);
  pinMode(buttonPin6, INPUT_PULLUP);
  pinMode(buttonPin7, INPUT_PULLUP);
+ pinMode(buttonPin8, INPUT_PULLUP);
  
 #ifdef Rotary
 pinMode(EncoderPinA, INPUT_PULLUP);   // rotary encoder pins
@@ -285,6 +288,10 @@ directionindex=true;
 LocoNumbers=0; 
 AllDataRead=false; 
 LOCO_id[0]="This is an unlikely name";
+      LOCO_V_min[0]=10;
+      LOCO_V_mid[0]=20;
+      LOCO_V_cru[0]=30;
+      LOCO_V_max[0]=40;;
 }
 
  void MQTT_DO(void){
@@ -299,6 +306,7 @@ buttonState3 = digitalRead(buttonPin3);
 buttonState5 = digitalRead(buttonPin5);
 buttonState6 = digitalRead(buttonPin6);
 buttonState7 = digitalRead(buttonPin7);
+buttonState8 = digitalRead(buttonPin8); //new 
 //Serial.print(" Buttons 3<");Serial.print(buttonState3);Serial.print("  5<");Serial.print(buttonState5);Serial.print(">  6<");Serial.print(buttonState6);Serial.print(">  7<");Serial.print(buttonState7);Serial.println(">");
  
 #ifdef Rotary
@@ -307,7 +315,7 @@ buttonState7 = digitalRead(buttonPin7);
   if (ThrottlePos != ThrottleClicks ) {
     ThrottleClicks = ThrottlePos;
     ThumbWheel.write(ThrottleClicks);
-    ThrottlePosition=int(ThrottleClicks/4);
+    ThrottlePosition=int(ThrottleClicks/4);// up in steps of 1?
    //Serial.print("Throttleclicks  = ");Serial.print(ThrottleClicks); // un comment for debug
    //Serial.print (" throttlepos:"); Serial.print(ThrottlePosition);   // un comment for debug
    //Serial.print (" lastthrottlepos:"); Serial.println(LastThrottlePosition);   // un comment for debug
@@ -343,8 +351,10 @@ if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate 
     buttonpressed=true;ButtonPressTimer=millis();
    ;ButtonRight(MenuLevel);
           MenuLevel=MenuLevel+1; // nb cannot change MenuLevel in a function that called with menulevel as a variable,
-           if (MenuLevel>= 3){MenuLevel=0;}
-      }
+          if (LocoNumbers>=2){if (MenuLevel>= 3){MenuLevel=0;}}
+           else {if (MenuLevel>= 3){MenuLevel=1;}
+                }
+           }
   if (!buttonpressed&&!buttonState5) {
     buttonpressed=true;ButtonPressTimer=millis();
     ButtonSelect(MenuLevel);     
@@ -357,6 +367,13 @@ if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate 
     buttonpressed=true;ButtonPressTimer=millis();
     ButtonDown(MenuLevel);
     } 
+/*  TO Be debugged  000000000000000000if (!buttonpressed&&!buttonState8) {
+    buttonpressed=true;ButtonPressTimer=millis();
+    ButtonLeft(MenuLevel);
+    MenuLevel=MenuLevel-1; // nb cannot change MenuLevel in a function that called with menulevel as a variable,
+           if (MenuLevel<=0){MenuLevel=3;}
+    } 
+  */  
 #ifdef Rotary
 if (millis()-ButtonPressTimer>=600) {buttonpressed=false;}// sets repetition rate for push buttons
 #endif
