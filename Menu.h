@@ -1,3 +1,5 @@
+
+  #include "Arduino.h"
 // Throttle settings extern variables for display and selection stuff
 extern int MenuLevel;
 extern int locoindex;
@@ -10,8 +12,13 @@ extern uint32_t ButtonPressTimer;
 //extern uint32_t LcPropsEnabled;
 extern byte ParseIndex;
 extern bool AllDataRead;
-
-char* Str2Chr(String stringin){
+extern void GetLocoList();
+extern void GetLocoFunctions(int index);
+extern String FunctionName[16];
+extern bool FunctionState[16];
+extern int FunctionTimer[16];
+bool FunctionActive;
+/*char* Str2Chr(String stringin){
   char* Converted;
   int cx;
   Converted="";
@@ -20,7 +27,7 @@ char* Str2Chr(String stringin){
  //  Serial.print(" to:");Serial.println(Converted);
    return Converted;
 }
-
+*/
 void drawImageDemo() {
     // see http://blog.squix.org/2015/05/esp8266-nodemcu-how-to-create-xbm.html
     // on how to create xbm files
@@ -45,71 +52,41 @@ void SetLoco(int locoindex,int speedindex){
   int cx;
   int SpeedSelected;
   SpeedSelected=speedindex;
-// new for rotary encoder, take out the speed steps
-#ifndef Rotary 
-switch (abs(speedindex)){
-  case 0:
-  SpeedSelected=0;
-  break;
-  case 1:
-  SpeedSelected=LOCO_V_min[locoindex].toInt();
-    break;
-  case 2:
-  SpeedSelected=LOCO_V_mid[locoindex].toInt();
-  break;
-  case 3:
-  SpeedSelected=LOCO_V_cru[locoindex].toInt();
-    break;
-  case 4:
-  SpeedSelected=LOCO_V_max[locoindex].toInt();
-    break;
-  case 5:
-  SpeedSelected=LOCO_V_max[locoindex].toInt();
-     break;
-} 
-#endif
-
 
 Dir=LastDir;
 LastLoco=locoindex;
 if (speedindex>=1){Dir=true;}
 if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when speed = 0 it uses the last direction set. 
 
- if (Dir) {LastDir=true; cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"%s\" />",Str2Chr(LOCO_id[locoindex]),SpeedSelected,ThrottleName);}
-      else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"%s\" />",Str2Chr(LOCO_id[locoindex]),abs(SpeedSelected),ThrottleName);}
+ if (Dir) {LastDir=true; cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"true\"  throttleid=\"%s\" />",LOCO_id[locoindex].c_str(),SpeedSelected,NameOfThisThrottle.c_str());}
+      else{LastDir=false;cx=sprintf(MsgTemp,"<lc id=\"%s\"  V=\"%d\" dir=\"false\"  throttleid=\"%s\" />",LOCO_id[locoindex].c_str(),abs(SpeedSelected),NameOfThisThrottle.c_str());}
 
   //Serial.print(LOCO_id[locoindex]);
   //Serial.print(" <");Serial.print(MsgTemp);Serial.println(">"); // to help with debug
   MQTTSend("rocrail/service/client",MsgTemp);
 }
-bool LightsState;
 
-void LocoLights(int locoindex,bool state){
+extern int FunctionTimer[16];
+void Send_function_command(int locoindex,int fnindex, bool state){
   char MsgTemp[200];
   int cx;
-  if (state){
-  cx=sprintf(MsgTemp,"<lc id=\"%s\"  fn=\"true\"   />",Str2Chr(LOCO_id[locoindex]));}
-  else {cx=sprintf(MsgTemp,"<lc id=\"%s\"  fn=\"false\"   />",Str2Chr(LOCO_id[locoindex]));}
-  Serial.print(LOCO_id[locoindex]);Serial.println(" Lights setting<");Serial.print(MsgTemp);Serial.println(">");
-  MQTTSend("rocrail/service/client",MsgTemp);
-  
-}
-
-void SetFn(int locoindex,int fnindex, bool state){
-  char MsgTemp[200];
-  int cx; 
-  if (state){  cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"true\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);}
-  else { cx=sprintf(MsgTemp,"<fn id=\"%s\" f%d=\"false\"  />",Str2Chr(LOCO_id[locoindex]),fnindex);}
-  Serial.print(LOCO_id[locoindex]);Serial.println(" fn set<");Serial.print(MsgTemp);Serial.println(">");
+        if (state){  cx=sprintf(MsgTemp,"<fn fnchanged=\"%d\" fnchangedstate=\"false\" id=\"%s\" f%d=\"false\" /> ",fnindex,LOCO_id[locoindex].c_str(),fnindex);}
+          else      { cx=sprintf(MsgTemp,"<fn fnchanged=\"%d\" fnchangedstate=\"true\" id=\"%s\" f%d=\"true\" /> ",fnindex,LOCO_id[locoindex].c_str(),fnindex);}
+ // command is of this general form.. <fn fnchanged="9" fnchangedstate="true" id="Test Board"  f9="true" 
+          
+// Serial.print(LOCO_id[locoindex]);Serial.println(" fn set<");Serial.print(MsgTemp);Serial.println(">");
   MQTTSend("rocrail/service/client",MsgTemp);
 }
 
-void SoundLoco(int locoindex,int fnindex){
-  if (fnindex==0){LightsState=!LightsState;LocoLights(locoindex,LightsState);}
-  else{
-      SetFn(locoindex,fnindex,true);
-      delay(10);
-      SetFn(locoindex,fnindex,false);
+void Do_Function(int locoindex,int fnindex){
+  // initially only f0 is toggle but now checks if timer is not zero
+  if (FunctionTimer[fnindex]<=0) {
+                FunctionState[fnindex]=!FunctionState[fnindex];
+                Send_function_command(locoindex,fnindex,!FunctionState[fnindex]);
+                FunctionActive=false;}
+  else{FunctionState[fnindex]=true;
+      Send_function_command(locoindex,fnindex,false);
+      FunctionActive=true;
       }
 }
 
@@ -120,42 +97,44 @@ void DoDisplay(int MenuLevel){
 String SpeedIndexString = String(speedindex);
 String FnIndexString= String(fnindex);
 String SpeedSelected;   
-String TopMessage = "Available Locos:";
-TopMessage += (LocoNumbers);
-display.setFont(ArialMT_Plain_10);
-//display.drawProgressBar(0, 58,127,6, ((y*100)/64));
-if (LocoNumbers>=2){
-display.drawString(64,54,TopMessage);}
+String TopMessage = "---Select Loco---";
+String BottomMessage = "Selected:";
+String MSGText;
+BottomMessage += locoindex+1;
+BottomMessage += " of :";
+BottomMessage += (LocoNumbers);
+BottomMessage+= " selected";
+
 switch (MenuLevel){
   
  case 0:  // top level
-    display.setFont(ArialMT_Plain_10);
-    if (LocoNumbers>=2){// only display this if we actually have a loco list!
-    display.drawString(64,1,"--- Select Loco ---");}
+ display.setFont(ArialMT_Plain_10);
+// only display this if we actually have a loco list!
 if (LocoNumbers<=0){
-  //Picture();
+   display.setFont(ArialMT_Plain_16);
+   display.drawString(64,1,"No Loco");
+  display.drawString(64,16,"List yet");}
+else{
+    display.drawString(64,54,BottomMessage);
     display.setFont(ArialMT_Plain_10);
-    display.drawString(64,2," Press to ");
-    display.drawString(64,12,"Refresh Loco List");
-    display.drawString(64,44,"or use Rocrail");
-    display.drawString(64,54,"to 'Dispatch' a Loco");
-    display.setFont(ArialMT_Plain_16);
+    display.drawString(64,0,TopMessage);
+
     
-}
-  else{  
     if (locoindex>=1){
      display.setFont(ArialMT_Plain_10);
      display.drawString(64,16,LOCO_id[locoindex-1]);
         }
-     if (locoindex<=LocoNumbers-1){
-     display.setFont(ArialMT_Plain_10);
-     display.drawString(64,40,LOCO_id[locoindex+1]);
-        }    
+        
      display.setTextAlignment(TEXT_ALIGN_CENTER);
      display.setFont(ArialMT_Plain_16);
-    display.drawString(64,26,LOCO_id[locoindex]);
+     display.drawString(64,26,LOCO_id[locoindex]);
+   if (locoindex<=LocoNumbers-1){
+     display.setFont(ArialMT_Plain_10);
+     display.drawString(64,40,LOCO_id[locoindex+1]);
+   }       
    
-  }
+}   
+  
       break;
  case 1: // selected loco, set speed
  //show loco
@@ -171,35 +150,8 @@ if (LocoNumbers<=0){
     }
  //show speed 
  SpeedSelected="";
- #ifndef Rotary
-    display.drawString(25,28,"Speed:");
-    //display.drawString(60,28,SpeedIndexString);
-    switch (abs(speedindex)){
-        case 0:
-        SpeedSelected="STOP";
-        break;
-        case 1:
-        SpeedSelected=LOCO_V_min[locoindex];
-        break;
-        case 2:
-        SpeedSelected=LOCO_V_mid[locoindex];
-        break;
-        case 3:
-        SpeedSelected=LOCO_V_cru[locoindex];
-        break;
-        case 4:
-        SpeedSelected=LOCO_V_max[locoindex]; 
-        break;
-        case 5:
-        SpeedSelected=LOCO_V_max[locoindex];
-        break;
-      }
-      display.drawString(90,28,SpeedSelected);
-
-#endif
-
+ 
 #ifdef Rotary
-//SpeedSelected=String(ThrottlePosition);
 display.drawString(25,28," Speed:");
 display.drawString(90,28,SpeedIndexString);
 #endif
@@ -212,32 +164,25 @@ display.drawString(90,28,SpeedIndexString);
       
 case 2: // selected loco, set fn
  //show loco
- if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
-   display.drawString(64,1,"No Loco");
-  display.drawString(64,16,"selected");}
-   else
-    {
      display.setTextAlignment(TEXT_ALIGN_CENTER);
      display.setFont(ArialMT_Plain_16);
      display.drawString(64,1,LOCO_id[locoindex]);
-    }
+    
  //show fn
     display.setFont(ArialMT_Plain_10);
-    display.drawString(64,20,"press for"); 
-    if (fnindex==0){
-      display.setFont(ArialMT_Plain_16);
-      if (LightsState){display.drawString(64,34,"Lights OFF"); }
-      else{display.drawString(64,34,"Lights ON");}
-                   }
-    else{
+    display.drawString(64,20,"press for");
+    if (FunctionName[fnindex]==""){MSGText="Fn:";MSGText+=fnindex;MSGText+=" ";}
+    else {MSGText=FunctionName[fnindex];}
+    MSGText+= "  ";
     display.setFont(ArialMT_Plain_16);
-    display.drawString(25,34," Fn :");
-    display.drawString(64,34,FnIndexString);}
-
-
-
-
+    display.drawString(64,34,MSGText);
+    if (FunctionTimer[fnindex]==0){ MSGText=" State is:"; if (FunctionState[fnindex]){MSGText+="ON";}
+                                                                                else{MSGText+="OFF";}
+           display.setFont(ArialMT_Plain_10);  display.drawString(64,54,MSGText);                }  // Function timer is zero for toggle  so show current state
+    
+      
+       
+    
       break;
 case 3: // selected loco, set something
      display.setTextAlignment(TEXT_ALIGN_CENTER);
@@ -277,7 +222,7 @@ switch (MenuLevel){
  break;
  case 2:
  fnindex=fnindex+1;
- if (fnindex>=8){fnindex=8;}
+ if (fnindex>=16){fnindex=16;}
  break;
  default:
  break;
@@ -329,34 +274,21 @@ if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
 
 void ButtonRight(int MenuLevel){
   // nb Looks like you cannot change MenuLevel in a function that called with MenuLevel as a variable, presumably it sets internal variable only?
-//debug
-//Serial.print("DEBUG Right button MenuLevel<"); Serial.print(MenuLevel);
-//Serial.print("> locoindex is<");Serial.print(locoindex);
-//Serial.print("> LastLoco is<");Serial.println(LastLoco);
-// adding bit to send lcprops same as select button
 
-if (LocoNumbers<=0){
-  Serial.print("sending Loco info request   ");
-  Serial.println("<model cmd=\"lcprops\" />");
-  ParseIndex=0;
-  AllDataRead=false;
-  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
-  }
+
+
   
 switch (MenuLevel){
  case 0:  // top level 
- if (LastLoco!=locoindex){
-  //Serial.print("new loco so start at 0 speed");
-      speedindex=0;
+    GetLocoFunctions(locoindex);
+  
       #ifdef Rotary
        ThrottlePosition=0; ThumbWheel.write(0);
-       // set Throttle pos to zero  
+       // set rotary to zero  
  
       #endif
-      }
-      else{
-   //     Serial.print("Same loco");
-      }
+      
+      
  break;
  case 1:  // level 
 
@@ -373,13 +305,6 @@ switch (MenuLevel){
 
 void ButtonLeft(int MenuLevel){
  
-if (LocoNumbers<=0){
-  Serial.print("sending Loco info request   ");
-  Serial.println("<model cmd=\"lcprops\" />");
-  ParseIndex=0;
-  AllDataRead=false;
-  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
-  }
   
 switch (MenuLevel){
  case 0:  // top level 
@@ -397,47 +322,65 @@ switch (MenuLevel){
 
 }
 
+void ButtonInactive(int MenuLevel){
+if (FunctionActive){  
+      FunctionActive=false;
+      Send_function_command(locoindex,fnindex,true);
+switch (MenuLevel){
+  
+ case 0:  // top level
+
+ break;
+
+ case 1:
+
+   
+ break;
+ case 2:
+  
+  
+break;
+ default:
+      
+ break;
+}
+}
+}
 
 
 void ButtonSelect(int MenuLevel){ 
   char MsgTemp[200];
   int cx;
-
-switch (MenuLevel){
+  switch (MenuLevel){
   
- case 0:  // top level
- if (LocoNumbers<=0){   
- Serial.print("sending Loco info request   ");
- Serial.println("<model cmd=\"lcprops\" />");
- // LcPropsEnabled=millis()+1500; // allow 1.5 sec for inital reading of props list: After this the Mqtt parse is disabled. 
-  ParseIndex=0;
-  AllDataRead=false;
-  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
-  //delay(500);MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />"); // send twice to try to trigger repeat find of first loco and stop further parsing? //not needed with v004
-   }
- else { SoundLoco(locoindex,2);
+ case 0:  // top level//toot fn (index) 
+    fnindex=2;
+    Do_Function(locoindex,fnindex);
+    FunctionActive=true;
        
-      }
+      
  break;
 
  case 1:
  #ifndef Rotary
- if (speedindex==0){ //toot fn (index) 
-     SoundLoco(locoindex,2);
+ if (speedindex==0){ 
+    fnindex=2; 
+    Do_Function(locoindex,fnindex);
+    FunctionActive=true;
  }
  else{
    speedindex=0;
    SetLoco(locoindex,speedindex);}
 #endif
     #ifdef Rotary
-      if (speedindex==0){ SoundLoco(locoindex,2); }//toot fn 2 (loco index) 
+      if (speedindex==0){ Do_Function(locoindex,2); }//toot fn 2 (loco index) 
        else{  speedindex=0;ThrottlePosition=0;LastThrottlePosition=0; ThumbWheel.write(0); SetLoco(locoindex,speedindex);}
 
 #endif
    
  break;
  case 2:
-  SoundLoco(locoindex,fnindex);
+  Do_Function(locoindex,fnindex);
   
 break;
  default:
@@ -510,13 +453,13 @@ void SetSwitch(int switchindex,bool Throw){
   
   extern void Picture();
 void DoDisplay(int MenuLevel){
-String TopMessage = "Available Turnouts:";
-TopMessage += (SwitchNumbers);
+String BottomMessage = "Available Turnouts:";
+BottomMessage += (SwitchNumbers);
 display.setFont(ArialMT_Plain_10);
 //display.drawProgressBar(0, 58,127,6, ((y*100)/64)); 
 display.setTextAlignment(TEXT_ALIGN_CENTER);
 if (SwitchNumbers>=1){
-display.drawString(64,54,TopMessage);}
+display.drawString(64,54,BottomMessage);}
 
 switch (MenuLevel){
   

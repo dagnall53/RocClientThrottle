@@ -1,20 +1,19 @@
-#define ver 005
-
+#define ver 006
+#include "Secrets.h"
 #define Rotary  // comment this out if not using the additional rotary switch or if you want speed increments of 10 and not the locolist Vx.. steps
 
 #include <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
 
-
 #include "Terrier.h"
-#include "MQTT.h"; //new place for mqtt stuff
+#include "MQTT.h" //new place for mqtt stuff
 #include <ArduinoOTA.h>
 #ifdef _Use_Wifi_Manager
        #include <WiFiManager.h>
 #else
-       #include "Secrets.h";
        String wifiSSID = SSID_RR;
        String wifiPassword = PASS_RR; 
 #endif
+String NameOfThisThrottle=ThrottleName;
 #include <ESP8266WiFi.h>
 uint8_t wifiaddr;
 uint8_t ip0;
@@ -23,11 +22,14 @@ uint8_t    subIPH;
 uint8_t    subIPL;
 //uint16_t HandControlID;
 
+// put these changes in PubSubClient.h at or around line 17 or so..(also commented at MQTT.cpp line 9)
+//        #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+//(And, if using RSMB and not Mosquitto..)
+//        #define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
+
 /* Encoder by Pul Stoffregen 
  * http://www.pjrc.com/teensy/td_libs_Encoder.html
  */
-
-
 #ifdef Rotary
  #include <Encoder.h>
  const int EncoderPinA = D9;     // the number of the A pushbutton pin (common is connected to ground
@@ -40,23 +42,19 @@ uint8_t    subIPL;
  bool FunctionUpdated;
  long EncoderMovedAt;
 #endif
-
+ long StartupAt;
+ bool LcpropsSent;
+ 
 
 //LOCO throttle settings from mqtt
 extern int LocoNumbers; //set in parse to actual number of locos in lc list
 
 extern String LOCO_id[MAXLOCOS];
-extern String LOCO_V_min[MAXLOCOS];
-extern String LOCO_V_mid[MAXLOCOS];
-extern String LOCO_V_cru[MAXLOCOS];
-extern String LOCO_V_max[MAXLOCOS];
-extern String LOCO_spcnt[MAXLOCOS];
+extern String SW_id[MAXLOCOS];
 extern int SW_bus[MAXLOCOS];
 extern int SW_addr[MAXLOCOS];
 
-//tern String LOCO_V_cru[MAXLOCOS];
-//extern String LOCO_V_max[MAXLOCOS];
-//extern String LOCO_spcnt[MAXLOCOS];
+
 
 IPAddress ipBroad;
 IPAddress mosquitto;
@@ -64,7 +62,7 @@ int connects;
 
 // connect to display using pins D1, D2 for I2C on address 0x3c
 SSD1306Wire  display(0x3c, D1, D2);
- #include "Menu.h"; //place for menu and display stuff
+ #include "Menu.h" //place for menu and display stuff
 
  
 int y;
@@ -91,6 +89,11 @@ int fnindex;
 int speedindex;
 bool directionindex;
 bool AllDataRead;
+
+const int MaxAttribSize = 35;
+char FoundAttrib[MaxAttribSize];// FoundAttrib= will be the attributes found by the attrib and attribcolon  functions;
+char DebugMessage[128];
+
 void OLED_Display(char* L1,char* L2,char* L3){
   display.clear();
  // Picture();
@@ -179,11 +182,7 @@ delay(10);
 void PrintLocoSettings(){
         for (int loco=1; loco<= LocoNumbers; loco++){
             Serial.print(F("Attributes stored for <"));Serial.print(loco);Serial.print(F("> <"));Serial.print(LOCO_id[loco]);
-            Serial.print(F("> Vmin:"));Serial.print (LOCO_V_min[loco]);
-            Serial.print(F(" Vmid:"));Serial.print (LOCO_V_mid[loco]);
-            Serial.print(F(" Vcru:"));Serial.print (LOCO_V_cru[loco]);
-            Serial.print(F(" Vmax:"));Serial.print (LOCO_V_max[loco]);
-            Serial.print(F(" spdcnt:"));Serial.print (LOCO_spcnt[loco]);
+         
       Serial.println("");}
 }
 
@@ -199,7 +198,7 @@ void _SetupOTA(String StuffToAdd){
   // Hostname defaults to esp8266-[ChipID]
 
 
- Name="RC<";
+ Name="RocMouse<";
  Name=Name+StuffToAdd;
  Name=Name+">";
  Serial.printf("--- Setting OTA Hostname <%s> -------------\n",Name.c_str());
@@ -233,7 +232,7 @@ void _SetupOTA(String StuffToAdd){
 void setup() {
   // init serial port
   Serial.begin(115200);
- 
+
   // set the builtin LED pin to work as an output
  pinMode(LED_BUILTIN, OUTPUT);
   
@@ -259,7 +258,8 @@ pinMode(EncoderPinB, INPUT_PULLUP);
 
  connects=0;
  Status();
- _SetupOTA("SwitchTool"); // now we  have set the nickname 
+ _SetupOTA(ThrottleName); // now we  have set the ota update nickname ThrottleName
+ //_SetupOTA("SwitchTool"); // now we  have set the nickname 
  Picture();
   display.drawString(64, 32, "WiFi Connected"); display.display();delay(1000);
   char MsgTemp[127];
@@ -282,16 +282,36 @@ FunctionUpdated=true;
 buttonpressed=false;
 MenuLevel=0;
 switchindex=1;
+locoindex=0;
+fnindex=0;
 RightIndexPos=3;
 LeftIndexPos=0;
 directionindex=true;
 LocoNumbers=0; 
 AllDataRead=false; 
-LOCO_id[0]="This is an unlikely name";
-      LOCO_V_min[0]=10;
-      LOCO_V_mid[0]=20;
-      LOCO_V_cru[0]=30;
-      LOCO_V_max[0]=40;;
+for (int i=0; i<=(MAXLOCOS) ;i++) {
+LOCO_id[i]="~blank~";
+}
+StartupAt=millis();
+LcpropsSent=false; 
+
+GetLocoList();
+}
+void GetLocoList(){
+  ParseIndex=0;
+  AllDataRead=false;
+  MQTT_DO(); // needed to make the function work in startup, before mqtt is running in the main loop
+  MQTTSend("rocrail/service/client","<model cmd=\"lcprops\" />");
+}
+
+void GetLocoFunctions(int index){
+  char MsgTemp[127];
+  int cx;
+  cx= sprintf ( MsgTemp,"<model cmd=\"lcprops\" val=\"%s\"/>",LOCO_id[index].c_str());
+  //Serial.println(MsgTemp);  //https://wiki.rocrail.net/doku.php?id=cs-protocol-en
+  
+  MQTTSend("rocrail/service/client",MsgTemp);
+
 }
 
  void MQTT_DO(void){
@@ -334,9 +354,9 @@ if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate 
  //   if (!FunctionUpdated){SetLoco(locoindex,ThrottlePosition); FunctionUpdated=true;}
 #endif 
  
-  display.clear();   // clear the screen get loco list if not  
-  
+  display.clear();  
   MQTT_DO();
+  
   DoDisplay(MenuLevel);
 
 
@@ -367,6 +387,9 @@ if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate 
     buttonpressed=true;ButtonPressTimer=millis();
     ButtonDown(MenuLevel);
     } 
+   if (!buttonpressed){
+    ButtonInactive(MenuLevel); 
+   }
 /*  TO Be debugged  000000000000000000if (!buttonpressed&&!buttonState8) {
     buttonpressed=true;ButtonPressTimer=millis();
     ButtonLeft(MenuLevel);

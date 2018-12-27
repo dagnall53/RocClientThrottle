@@ -1,23 +1,27 @@
 
-#include "MQTT.h";
+#include "MQTT.h"
 #include <Arduino.h> //needed 
 //  #include "Directives.h";
 #define SignalON LOW  // defined so I can change the "phase of the SignalLED" easily.
 #define SignalOFF HIGH
 
 
-// put these in pubsubclient.h
-#define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
-#define MQTT_MAX_PACKET_SIZE 25000   // lclist is LONG...!
-
+// put these changes in PubSubClient.h at or around line 17 or so..
+//        #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+//(And, if using RSMB and not Mosquitto..)
+//        #define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
 #include <PubSubClient.h>
+
+
+
+
 #include <WiFiClient.h>
 WiFiClient espClient;
 
 PubSubClient client(espClient);
 
 extern IPAddress mosquitto;
-
+extern String NameOfThisThrottle;
 //#include "Globals.h";
 
 byte payload[12000];
@@ -46,11 +50,11 @@ byte ParseIndex;
 int SwitchNumbers;
 int LocoNumbers;
 String LOCO_id[MAXLOCOS];
-String LOCO_V_min[MAXLOCOS];
-String LOCO_V_mid[MAXLOCOS];
-String LOCO_V_cru[MAXLOCOS];
-String LOCO_V_max[MAXLOCOS];
-String LOCO_spcnt[MAXLOCOS];
+String SW_id[MAXLOCOS];
+String FunctionName[16];
+bool FunctionState[16];
+int FunctionTimer[16];
+
 int SW_bus[MAXLOCOS];
 int SW_addr[MAXLOCOS];
 extern int switchindex;
@@ -60,29 +64,26 @@ extern byte SW_all[9];
 
 int Count(unsigned int start,char* id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
  int count;int allsame;
- unsigned int AttribLength;
+ unsigned int id_Length;
  bool same;
  count=0;
- AttribLength = strlen(id)-1;
+ id_Length = strlen(id)-1;
 // Serial.println();Serial.print("length of string \"");Serial.print(id);// note  \"
-// Serial.print("\" is:");Serial.println(AttribLength);
-//for (int y=0;y<=(AttribLength);y++){
+// Serial.print("\" is:");Serial.println(id_Length);
+//for (int y=0;y<=(id_Length);y++){
 //  Serial.print("id --<");Serial.print(y);Serial.print("> ={");Serial.print(id[y]);Serial.println("}");
 // }
 // Serial.print("char(data) --<");
 //for (int y=0;y<=50;y++){
 //  Serial.print(char(data[y]));
 //}Serial.println();
-
-//Serial.print("starting count of <");Serial.print(id);Serial.println(">'s");
-int Y;
- for (unsigned int x=start ; x<= Length-AttribLength-1; x++){
- //  for (unsigned int x=0 ; x<= 160; x++){
+//Serial.print("starting count of how many <");Serial.print(id);Serial.println(">'s");
+ for (unsigned int x=start ; x<= Length-id_Length-1; x++){
   allsame=0;
-  for (int y=0;y<=(AttribLength);y++){Y=y;
+  for (int y=0;y<=(id_Length);y++){
     if (id[y]==char(data[x+y])){allsame=allsame+1;}
         }
-  if (allsame==AttribLength+1){count=count+1;
+  if (allsame==id_Length+1){count=count+1;
   /*
       Serial.print(" at x=");Serial.print(x);Serial.print("  found id number:");Serial.println(count);Serial.print(" Next 20 data are  <");
           for (int show=0;show<=20;show++) { Serial.print(char(data[x+Y+show]));}
@@ -93,84 +94,211 @@ int Y;
  }
  return count;
 }
-
-char* Attrib(unsigned int Nth,char* id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
- int count;int allsame;int Y;
- unsigned int AttribLength;
- const int MaxAttribSize =30;
- char* FoundAttrib;
- count=0;
- //id.concat("\"");
- AttribLength = strlen(id)-1;
-
-// Serial.println();Serial.print("starting search for entry <");Serial.print(Nth);Serial.println("> for <");Serial.print(id);Serial.print("> ... ");
-
-  for (unsigned int x=0 ; x<= Length-AttribLength-20; x++){
-  // for (unsigned int x=0 ; x<= 160; x++){
-  allsame=0;
-  
-  FoundAttrib="";// instantiate string or get problems later!
+  // #define _attribdebug
+ // #define _attribdebugc
+ // #define _attribdebugplus
+ extern const int MaxAttribSize=35 ;
+ extern char FoundAttrib[MaxAttribSize];
+ 
+char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to find string First then string id in data 
+ int count;int allsame;int Firstcount; int Y; int Z;
+ unsigned int id_Length;
+ unsigned int First_Length;
+ bool FirstFound;
+ bool SentFirstMsg;bool SentSecondMsg;
+  First_Length = (First.length())-1;
+  id_Length = (id.length())-1;
+  count=0;
+  SentFirstMsg=false;
+  SentSecondMsg=false; 
   for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
   
-  for (int y=0;y<=(AttribLength);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; } 
-      }//y loop
-        if (allsame==AttribLength+1){count=count+1;} // count 
-            if (count==Nth){
-        // Serial.print("found Nth text at char<");Serial.print(x);Serial.print(">  is<");
+ // for debug 
+ #ifdef _attribdebugplus 
+  Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(id);Serial.println(">  ");
+ #endif 
+ FirstFound=false;  
+    for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+       allsame=0;
+       Firstcount=0;
+
+// at this x offset, see if we have first text to see if its present at data[x]
+       for (int w=0;w<=(First_Length);w++){
+                         #ifdef _attribdebugplus        // sends 150 chars from the  "x>=" onwards. to manually check we have the data we are looking for 
+                              //    if  ((x>=2532)&&!SentSecondMsg){SentSecondMsg=true; 
+                               //   Serial.print("MSG @");Serial.print(x);Serial.print(" is {");
+                               //       for (int te=0;te<=150;te++){
+                               //                Serial.print(char(data[x+te]));
+                                 //                    }Serial.println("}");}
+                         #endif
+            if (First[w]==char(data[x+w])){Firstcount=Firstcount+1;}//loop checks each byte of id
+                if (Firstcount==First_Length+1){
+                    FirstFound=true;
+                          Z=x; // store offset in case we need it later
+                          #ifdef _attribdebugplus        
+                                  if  (!SentFirstMsg){SentFirstMsg=true; 
+                                  Serial.print("Found occurance of First text at char<");Serial.print(x);Serial.println(">   ");
+                                                     }
+                         #endif
+                                              } // we found First text 
+                                             } // end of w loop
+                // now look on for text id from this point on
+                
+  if (FirstFound){  
+     #ifdef _attribdebugplus  
+           Serial.print(char(data[x+Z]));
+           #endif
+    allsame=0;            
+           for (int y=0;y<=(id_Length);y++){  Y=y; 
+           if (id[y]==char(data[x+y])){allsame=allsame+1;
+           #ifdef _attribdebugplus  
+       //    Serial.print("!");
+           #endif
+                                                  }// all the same so far
+                                       }//y loop checks each byte of id
+                if (allsame==id_Length+1){count=count+1;} // count 
+                if (count==1){  // found  nth occurrence of id
+         // for debug
+          #ifdef _attribdebugplus        
+                     Serial.print("found Second text at char<");Serial.print(x);Serial.print(">  is<");
+          #endif
                for (int z=0 ;z<=MaxAttribSize;z++) { 
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
                    if (data[x+Y+z+1]==34){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
                    for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
-                   // Serial.println(">");
+                    // for debug  
+                     #ifdef _attribdebugplus 
+                           Serial.println(">");
+                     #endif
+                     //delayMicroseconds(3);// a short delay seems essential if char* foundattrib is defined INSIDE the function..3us is recomended minimum 
                    return FoundAttrib;}
                 else{FoundAttrib[z]=char(data[x+Y+z+1]);
-                  //Serial.print(char(data[x+Y+z+1]));  
+                  // for debug 
+                   #ifdef _attribdebugplus  
+                      Serial.print(char(data[x+Y+z+1]));
+                   #endif  
                   }
          }// z loop
-    }
-    
-    //if same
+    } //if nth occurance  same
+  }
+   } //x loop
+ return FoundAttrib;
+}
+
+char* Attrib(unsigned int Nth,String id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
+ int count;int allsame;int Y;
+ unsigned int id_Length;
+ //const int MaxAttribSize =35;
+ //char FoundAttrib[MaxAttribSize];// FoundAttrib= will be the attributes found by this function;
+ 
+ // char* FoundAttrib;// FoundAttrib= will be the attributes found by this function;
+  // FoundAttrib="";// instantiate string or get problems later!
+ 
+  id_Length = (id.length())-1;
+  count=0;
+ // for debug 
+ #ifdef _attribdebug 
+  Serial.println();Serial.print("starting search for <");Serial.print(id_Length+1);Serial.print( "> bytes of entry <");Serial.print(Nth);Serial.print("> for <");Serial.print(id);Serial.print("> .in.. ");
+ #endif 
+  
+  for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
+  
+  // for debug  
+ //for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+ // Serial.print(char(data[x])); }
+ // Serial.println("");
+  
+  for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+       allsame=0;
+       for (int y=0;y<=(id_Length);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; 
+                                  //Serial.print(allsame); 
+                                       }// all the same so far
+                                       }//y loop checks each byte of id
+  
+        if (allsame==id_Length+1){count=count+1;} // count 
+            if (count==Nth){
+         // for debug
+          #ifdef _attribdebug        
+                     Serial.print("found Nth text at char<");Serial.print(x);Serial.print(">  is<");
+          #endif
+               for (int z=0 ;z<=MaxAttribSize;z++) { 
+                   //FoundAttrib[z]=char(data[x+Y+z+1]);
+                   if (data[x+Y+z+1]==34){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
+                   for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
+                    // for debug  
+                     #ifdef _attribdebug 
+                           Serial.println(">");
+                     #endif
+                     //delayMicroseconds(3);// a short delay seems essential if char* foundattrib is defined INSIDE the function..3us is recomended minimum 
+                   return FoundAttrib;}
+                else{FoundAttrib[z]=char(data[x+Y+z+1]);
+                  // for debug 
+                   #ifdef _attribdebug  
+                      Serial.print(char(data[x+Y+z+1]));
+                   #endif  
+                  }
+         }// z loop
+    } //if nth occurance  same
  
    } //x loop
  return FoundAttrib;
 }
 
-char* AttribColon(unsigned int Nth,char* id, byte* data,unsigned int Length) {// to find string id (ending in colon) in data and count  (max 65k)
+
+char* AttribColon(unsigned int Nth,String id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
  int count;int allsame;int Y;
- unsigned int AttribLength;
- const int MaxAttribSize =30;
- char* FoundAttrib;
- count=0;
- //id.concat("\"");
- AttribLength = strlen(id)-1;
+ unsigned int id_Length;
+ //const int MaxAttribSize =35;
+ //char FoundAttrib[MaxAttribSize];// FoundAttrib= will be the attributes found by this function;
+  //char* FoundAttrib;// FoundAttrib= will be the attributes found by this function;
+  // FoundAttrib="";// instantiate string or get problems later!
+ 
+  id_Length = (id.length())-1;
+  count=0;
+ // for debug 
+ #ifdef _attribdebugc 
+     Serial.println();Serial.print("starting colon ended search for <");Serial.print(id_Length+1);Serial.print( "> bytes of entry <");Serial.print(Nth);Serial.print("> for <");Serial.print(id);Serial.print("> .in.. ");
+ #endif 
 
-// Serial.println();Serial.print("starting search for entry <");Serial.print(Nth);Serial.println("> for <");Serial.print(id);Serial.print("> ... ");
-
-  for (unsigned int x=0 ; x<= Length-AttribLength-20; x++){
-  // for (unsigned int x=0 ; x<= 160; x++){
-  allsame=0;
-  
-  FoundAttrib="";// instantiate string or get problems later!
   for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
   
-  for (int y=0;y<=(AttribLength);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; } 
-      }//y loop
-        if (allsame==AttribLength+1){count=count+1;} // count 
+  // for debug  
+ //for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+ // Serial.print(char(data[x])); }
+ // Serial.println("");
+  
+  for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+       allsame=0;
+       for (int y=0;y<=(id_Length);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; 
+                                  //Serial.print(allsame); 
+                                       }// all the same so far
+                                       }//y loop checks each byte of id
+  
+        if (allsame==id_Length+1){count=count+1;} // count 
             if (count==Nth){
-        // Serial.print("found Nth text at char<");Serial.print(x);Serial.print(">  is<");
+         // for debug
+          #ifdef _attribdebugc        
+              Serial.print("Attrib colon found Nth text at char<");Serial.print(x);Serial.print(">  is<");
+          #endif
                for (int z=0 ;z<=MaxAttribSize;z++) { 
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
                    if (data[x+Y+z+1]==58){FoundAttrib[z]=0;  // end of data with ascii dec 58 == (:)
-                   for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
-                   // Serial.println(">");
+                                          FoundAttrib[z+1]=0; // need extra zero?
+                   //for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
+                    // for debug  
+                     #ifdef _attribdebugc 
+                      Serial.println(">");
+                     #endif
+                     //delayMicroseconds(3);// a short delay seems essential if char* foundattrib is defined INSIDE the function..the  3us is recomended minimum 
                    return FoundAttrib;}
                 else{FoundAttrib[z]=char(data[x+Y+z+1]);
-                  //Serial.print(char(data[x+Y+z+1]));  
+                  // for debug 
+                   #ifdef _attribdebugc 
+                    Serial.print(FoundAttrib[z]);
+                   #endif  
                   }
          }// z loop
-    }
-    
-    //if same
+    } //if nth occurance  same
  
    } //x loop
  return FoundAttrib;
@@ -178,35 +306,41 @@ char* AttribColon(unsigned int Nth,char* id, byte* data,unsigned int Length) {//
 extern void Picture();
 
 void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
-  // propslist gives just one loco at a time so the Attrib length is 1 every time. but will be stored in index [loco]
-      LOCO_id[loco]=Attrib(1,"<lc id=\"",payload,Length);
-      LOCO_V_min[loco]=Attrib(1," V_min=\"",payload,Length);
-      LOCO_V_mid[loco]=Attrib(1," V_mid=\"",payload,Length);
-      LOCO_V_cru[loco]=Attrib(1," V_cru=\"",payload,Length);
-      LOCO_V_max[loco]=Attrib(1," V_max=\"",payload,Length);
-      LOCO_spcnt[loco]=Attrib(1," spcnt=\"",payload,Length);
-     LocoNumbers=loco+1;
-     if (LocoNumbers>=MAXLOCOS-1) {LocoNumbers=MAXLOCOS-1;}
-     Serial.print("Attributes for loco id[");Serial.print(loco);Serial.print("] <");Serial.print(LOCO_id[loco]);
-     Serial.print(">  V_min:");Serial.print (LOCO_V_min[loco]);
-     Serial.print(" V_mid:");Serial.print (LOCO_V_mid[loco]);
-     Serial.print(" V_cru:");Serial.print (LOCO_V_cru[loco]);
-     Serial.print(" V_max:");Serial.print (LOCO_V_max[loco]);
-     Serial.print(" spdcnt:");Serial.print (LOCO_spcnt[loco]);
-     Serial.println(" ");
+       // propslist gives just one loco at a time so the Attrib length is 1 every time. but will be stored in index [loco]
+      LOCO_id[loco]=Attrib(1,"<lc id=\"",payload,Length);   
+      //Serial.print("Name read for loco id[");Serial.print(loco);Serial.print("] <");Serial.print(LOCO_id[loco]);
+      //Serial.println("> ");
    }
 
+void ParseLocoFunctionsList(byte loco, byte* payload, unsigned int Length){
+  String LookFor; String SecondText; String FirstText; 
+  int index;
+  index=0;
+     Serial.print("Functions reading for loco id[");Serial.print(loco);Serial.print("] <");Serial.println(LOCO_id[loco]);
+     for (index=0;index<=16;index++){
+      LookFor="<fundef fn=\"";
+      LookFor=LookFor+index;
+      LookFor+="\""; 
+      FirstText=" text=\"";
+      SecondText=" timer=\"";
+      FunctionName[index] = AttribPlus(LookFor,FirstText,payload,Length);
+      FunctionTimer[index] = atoi(AttribPlus(LookFor,SecondText,payload,Length));
+     // Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> Timer:"); Serial.println(FunctionTimer[index]);
+      //Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> "); Serial.print("timer");Serial.print(" <");Serial.print(FunctionTimer[index]); Serial.print("> ");
+      }
+     // Serial.println("> ");
+   }
 void ParseSwitchList(byte Switch, byte* payload, unsigned int Length){
   String Result;
      // allow processor to do other things?
-         LOCO_id[Switch]=Attrib(1,"\" id=\"",payload,Length);  // {" id="}
+         SW_id[Switch]=Attrib(1,"\" id=\"",payload,Length);  // {" id="}
          Result=Attrib(1," bus=\"",payload,Length);
          SW_bus[Switch]=Result.toInt();
          Result=Attrib(1," addr1=\"",payload,Length);
          SW_addr[Switch]=Result.toInt();
      SwitchNumbers=Switch+1;
      if (SwitchNumbers>=MAXLOCOS-1) {SwitchNumbers=MAXLOCOS-1;}
-   Serial.print("Attributes for <");Serial.print(Switch);Serial.print("> <");Serial.print(LOCO_id[Switch]);
+   Serial.print("Attributes for <");Serial.print(Switch);Serial.print("> <");Serial.print(SW_id[Switch]);
    Serial.print(">  BUS:(==Rocnode)");Serial.print (SW_bus[Switch]);
    Serial.print(" addr:");Serial.print (SW_addr[Switch]);
 
@@ -227,31 +361,29 @@ uint8_t ROC_Data[200];
 
 
 //
-
+extern char DebugMessage[128];
 char*  Show_ROC_MSG(uint8_t Message_Length) {
-char DebugMessage[128];
-  if (Message_Length >= 1) {
+  //char DebugMessage[128];
+    if (Message_Length >= 1) {
     DebugMessage[0] = 0;
-    strcat(DebugMessage, " NetID:");
-    snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_netid);
+    strcat(DebugMessage, " Length:"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, Message_Length);
+    strcat(DebugMessage, " NetID:");    snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_netid);
     strcat(DebugMessage, " Rec:"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_recipient);
     strcat(DebugMessage, " Sdr:"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_sender);
     strcat(DebugMessage, " Grp:"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_group);
+    strcat(DebugMessage, " DLen:"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_len);
     strcat(DebugMessage, " Code[");
-    if ((ROC_code & 0x60) == 0) {
-      strcat(DebugMessage, "Req]:");
-    }
-    if ((ROC_code & 0x60) == 0x20) {
-      strcat(DebugMessage, "Evt]:");
-    }
-    if ((ROC_code & 0x60) == 0x40) {
-      strcat(DebugMessage, "Rpy]:"); //// add request event reply then code.. (5 bits)
-    }
-    snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, (ROC_code & 0x1F));
+    if ((ROC_code & 0x60) == 0) { strcat(DebugMessage, "Req]:");   }
+    if ((ROC_code & 0x60) == 0x20) { strcat(DebugMessage, "Evt]:");}
+    if ((ROC_code & 0x60) == 0x40) { strcat(DebugMessage, "Rpy]:"); //// add request event reply then code.. (5 bits)
+                                    }
+                                    snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, (ROC_code & 0x1F));
+    strcat(DebugMessage, " Data:"); 
     for (byte i = 1; i <= ROC_len; i++) {
       strcat(DebugMessage, " D"); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, i);
       strcat(DebugMessage, "="); snprintf(DebugMessage, sizeof(DebugMessage), "%s%d", DebugMessage, ROC_Data[i]);
     }
+    
 
     //Serial.print(DebugMessage);
   } return DebugMessage;
@@ -279,14 +411,17 @@ extern int switchindex;
 extern int locoindex;
 extern int speedindex;
 extern int MenuLevel;
-void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces rocfetch
+
+
+void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces original rocfetch
   // do a check on length matching payload[7] ??
-char PayloadAscii[100];
-unsigned int y;
+  char PayloadAscii[100];
+  unsigned int y;
+  int cx;
+  char DebugMsgLocal[127];
+  for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
+  Message_Decoded = false;
 
-for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
-
-      Message_Decoded = false;
 //  Do Clock synch   
   if ((strncmp("rocnet/ck", topic, 9) == 0)) { //==0 if n bytes are the same
      hrs = payload[12];
@@ -295,8 +430,9 @@ for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
      Message_Decoded = true;
      delay(subIPL);
      DebugSprintfMsgSend( sprintf ( DebugMsg, " IPaddr .%d  Time Synchronised. ",subIPL));
-    }
-  
+     }
+// end clock synch
+//   a "Programming stationary" message
  if ((strncmp("rocnet/ps", topic, 9) == 0)) { //==0 if n bytes are the same this is a "Programming stationary" message
     
  //start decode     
@@ -325,46 +461,128 @@ for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
        Message_Decoded = true;                                
        }}
    // return; 
-
-    Message_Decoded = true; // but turn off debug print outputs in the final version
-   if   ((!Message_Decoded)) {
-   Serial.print(" Sender");Serial.print( IntFromPacket_at_Addr(payload,Sender_Addr));
-   Serial.print(" Recipient");Serial.print( IntFromPacket_at_Addr(payload,Recipient_Addr));
-   Serial.print(" group");Serial.print( ROC_group);
-   Serial.print(" code");Serial.print( ROC_code);
-   //Serial.print(" Looking for addr:");Serial.print(SW_addr[switchindex]);
-   Serial.println("  ");  
-                             }
-       // for test purposes, if not decoded,  it  must be something else so print for debugging....
-     
-          if   ((!Message_Decoded)) { Serial.print("Unknown rocnet/ps MSG  is <"); Serial.print(Show_ROC_MSG(Length)); Serial.println(">");}
+   // for test purposes, if not decoded,  it  must be something else so print for debugging....
+     Message_Decoded = true;     
+    if   ((!Message_Decoded)) { Serial.print("Unknown rocnet/ps MSG Length<");Serial.print(Length);Serial.print("> is "); Serial.print(Show_ROC_MSG(Length));}
    } // if ((strncmp("rocnet/ps", 
+//end a "Programming stationary" message
 
-   
-// is it a service info?
- if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
-if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ThisID=Attrib(1,"<lc id=\"",payload,Length);}
-  
- // old version if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ // {does it contain "<lc id="   NOTE for self. add a second check for "prev_id=" as well to only capture lcprops messages?
-    if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&(strlen(Attrib(1,"prev_id=\"",payload,Length))>=1)){ // {does it contain "<lc id="  and "prev_id=" as well is should only capture lcprops messages?
-       if ((ParseIndex<=MAXLOCOS)&& (!AllDataRead)){  // if we have room and we have not set alldataread, get the name of this loco
-          if (ThisID==LOCO_id[locoindex]){ // Is this is a  a response for somethng we have sent a command to");
-                                         }
-             else { // this is may be data about a new loco ?
-                  for (int i=0; i<=(MAXLOCOS) ;i++) { 
-                          if (ThisID==LOCO_id[i]){ Serial.print(" Seen this loco before - switching off ParseLoco- ");  
-                                                  AllDataRead=true;} //end of if
-                                                     }// end of for i loop checking all previously stored loconames
-                   if (!AllDataRead) {ParsePropsLocoList(ParseIndex,payload,Length); 
-                                      Serial.print(F(" Loco list contains <"));Serial.print(ParseIndex+1);Serial.println("> Locos");
-                                      ParseIndex++;}                                    
-                   }// end of "else"   
-       Message_Decoded = true;} 
-       } // It was a "<lc id=" / prev_id message and we have dealt with it
-   else{ if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&
+ if ((strncmp("rocrail/service/client", topic, 22) == 0)) {
+  Message_Decoded = true;// I ignore client messages for now  
+      }
+// is it a service info message?
+if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
+    if (strlen(Attrib(1,"<lc ",payload,Length))>=1){ThisID=Attrib(1,"id=\"",payload,Length);
+    //Serial.println(ThisID); // added for tests
+    }
+    
+ bool same; 
+  if ((!Message_Decoded)&&(strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&&(strlen(Attrib(1,"prev_id=\"",payload,Length))>=1)){ // {does it contain "<lc id="  and "prev_id=" as well is should only capture lcprops messages?
+           // this is may be data about a new loco ?
+          // Serial.print("This ID is <");Serial.print(ThisID);Serial.print("> Loco list is ");
+          // for (int check=0; check<=5 ;check++) { Serial.print("; [");Serial.print(check);Serial.print("] <");Serial.print(LOCO_id[check]);Serial.print("> ");}
+          // Serial.println("");
+           same=false;
+                  for (int check=0; check<=MAXLOCOS ;check++) { if ((ThisID==LOCO_id[check])) { same=true;}}
+                                                    // get to here with same=false if this is a new loco
+                       if (!same){
+                                                    ParsePropsLocoList(ParseIndex,payload,Length);
+                                                    // LocoNumbers++;
+                                                     if (LocoNumbers>=MAXLOCOS-1) {LocoNumbers=MAXLOCOS-1;} // overwrite the last number if too many locos
+                                                   // DebugSprintfMsgSend(sprintf(DebugMsg,"New Loco found..<%s> ",ThisID.c_str()));
+                                                    DebugSprintfMsgSend(sprintf(DebugMsg," Loco list contains <%d> Locos",ParseIndex+1));
+                                                    ParseIndex++;
+                                                    LocoNumbers=ParseIndex;
+                                                    }
+                                                    else {// update properties for current 
+                                                    ParseLocoFunctionsList(locoindex,payload,Length);  
+                                                    Message_Decoded = true; 
+                                                      }                   
+                                                    
+           Message_Decoded = true; }  
+
+           
+// function change? in fn message..          
+int FN_seen;
+String FN_ascii;
+String FN_state_string; 
+String LocoIDForFnChanged;
+bool FN_attribute; 
+String MSG;
+// format #1
+MSG="<fn fnchanged=\"";
+if ((strlen(Attrib(1,MSG,payload,Length))>=1)){  
+                 
+              LocoIDForFnChanged=AttribPlus("<fn fnchanged","id=\"",payload,Length);
+              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print(" Me");
+              FN_seen=atoi(Attrib(1,"<fn fnchanged=\"",payload,Length));
+              FN_state_string=AttribPlus("<fn fnchanged","fnchangedstate=\"",payload,Length);
+              if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
+              FunctionState[FN_seen]=FN_attribute;
+                    Serial.print(F(" Function changed seen "));
+                    Serial.print("  F<");Serial.print(FN_seen);
+                    Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
+              }
+              
+              Message_Decoded = true;// we understand this message
+             }
+// format #2
+MSG="<fn id=\"";
+if ((!Message_Decoded)&&(strlen(Attrib(1,MSG,payload,Length))>=1)){  
+              LocoIDForFnChanged=Attrib(1,MSG,payload,Length);
+              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print(" Me");
+              FN_seen=atoi(AttribPlus(MSG,"\" f",payload,Length));
+              MSG=" f";
+              MSG+=FN_seen;
+              MSG+="=\"";
+              FN_state_string=Attrib(1,MSG,payload,Length);
+              if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
+              FunctionState[FN_seen]=FN_attribute;
+                    Serial.print(F(" Fn change seen "));
+                    Serial.print("  F<");Serial.print(FN_seen);
+                    Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
+              }
+                            Message_Decoded = true;// we understand this message
+             }
+// format #3
+MSG="<lc id=\"";
+if ((!Message_Decoded)&&(strlen(Attrib(1,MSG,payload,Length))>=1)){  
+              LocoIDForFnChanged=Attrib(1,MSG,payload,Length);
+              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()) {Serial.print(" Me ");
+              FN_ascii=(AttribPlus(MSG,"\" f",payload,Length));
+              FN_seen=atoi(AttribPlus(MSG,"\" f",payload,Length));
+              //Serial.print("found  f<");Serial.print(FN_ascii);Serial.println(">   ");
+              if (FN_ascii=="n="){FN_seen=0;   // needs update to remove the =sign before doing the atoi?
+                                 MSG=" fn=\"";           }
+                          else{     
+                              MSG=" f";
+                              MSG+=FN_seen;
+                              MSG+="=\"";}
+                   // Serial.print("looking for<");Serial.print(MSG);Serial.println(">   ");
+              FN_state_string=AttribPlus("<lc id=\"",MSG,payload,Length);
+              if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
+              FunctionState[FN_seen]=FN_attribute;
+                    Serial.print(F(" lc change seen "));
+                    Serial.print("  F<");Serial.print(FN_seen);
+                    Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
+              }
+                            Message_Decoded = true;// we understand this message
+             }
+
+             
+
+
+// function change seen in <lc message?             
+if ((strlen(Attrib(1,"<lc ",payload,Length))>=1)    &
+            (strlen(Attrib(1,"id=\"",payload,Length))>=1)){  
+              Message_Decoded = true;
+             }
+
+// speed change??       
+ if ((strlen(Attrib(1,"<lc id= ",payload,Length))>=1)    &
              (strlen(Attrib(1,"V=\"",payload,Length))>=1)     & 
-             (strlen(Attrib(1,"prev_id=\"",payload,Length))>=0)){  //{ // is LCid and V= BUT NOT "prev_id=\"
-              Serial.print(ThisID);
+             (strlen(Attrib(1,"throttleid=\"",payload,Length))>=1)){
+              if (Attrib(1,"id=\"",payload,Length)==LOCO_id[locoindex].c_str()){//{ // is LCid and V= BUT NOT "prev_id=\"
               Serial.print(F(" Velocity change seen for:"));
               ThisSpeed=Attrib(1,"V=\"",payload,Length);
               Serial.print(ThisID);
@@ -376,21 +594,23 @@ if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){ThisID=Attrib(1,"<lc id=\""
                 speedindex= -ThisSpeed.toInt();}
                 else {speedindex= ThisSpeed.toInt();}
                 }
-              
-             }
-    
-        }
+               Message_Decoded = true;
+             }}
+        
+  
 // release throttle..
 if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){
       ThisID=Attrib(1,"<lc id=\"",payload,Length);  // get the name now..
       if (strlen(Attrib(1,"cmd=\"release\"",payload,Length))>=1){ // is this the release message 
          //Serial.println("-");
-         Serial.print("Throttle Release for ");
-         Serial.println(ThisID);
+         //Serial.print("Throttle Release for ");
+         //Serial.println(ThisID);
           if ((ThisID==LOCO_id[0])&&(LocoNumbers==1)){
-          Serial.print(F("Throttle Release is for me!"));
+          //Serial.print(F("Throttle Release is for me!"));
+          //DebugMsgSend("debug","Throttle control released");
+          DebugSprintfMsgSend(sprintf(DebugMsg," control of %s released",ThisID.c_str()));
           ThisID="This is an unlikely name";
-          LOCO_id[0]=ThisID;
+          //LOCO_id[0]=ThisID;
           LocoNumbers=0;
           ParseIndex=0;
           AllDataRead=false;
@@ -400,44 +620,13 @@ if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){
        }
       
         
-    }// end of service info check and does not contain <lc id=
-// Throttle dispatch message
-if (LocoNumbers<=0){// only do this if we have no loco list!
-         if (strncmp("<exception text=\"dispatch loco ",PayloadAscii,31)==0){
-          Serial.print(F("Throttle Dispatch seen <"));
-          ThisID=AttribColon(1,"<exception text=\"dispatch loco ",payload,Length);
-          Serial.print(ThisID);Serial.println(">");
-          LOCO_id[0]=ThisID;
-          LocoNumbers=1;
-          MenuLevel=1;
-          ParseIndex=0;
-          AllDataRead=true;
-         Message_Decoded = true; }  
-                   }
-// release throttle..
-//  if ((strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&(strlen(Attrib(1,"cmd=\"release",payload,Length))>=1)){ // does it contain "<lc id="  and "cmd=\"release" as well 
-//       Serial.print(F("Throttle Release "));
-//       Message_Decoded = true;}
-/*if (LocoNumbers==1){// only do this if we have a single loco
-  if (strlen(Attrib(1,"cmd=\"release",payload,Length))>=1){
-          Serial.print(F("Throttle Release "));
-          ThisID=Attrib(1,"<lc id=\"",payload,Length);
-          if (ThisID==LOCO_id[0]){
-          Serial.print(F("Throttle Release for me!"));
-          ThisID="This is an unlikely name";
-          LOCO_id[0]=ThisID;
-          LocoNumbers=0;
-          ParseIndex=0;
-          AllDataRead=false;
-          MenuLevel=0;
-         Message_Decoded = true; }  
-                }
-                   }
-*/
-                   
-// known but unimportant (to me) messages
+    }// end of service info check , including release loco throttle
+// // is it a service info?  
+                                 
+// other known but unimportant (to me in this code) messages
      if (strncmp("<exception text=",PayloadAscii,16)==0){
-         Message_Decoded = true; }  
+         Message_Decoded = true; 
+         }  
      if (strncmp("<clock divider=",PayloadAscii,15)==0){
       //Serial.print(F("Clock msg<"));
          Message_Decoded = true; }
@@ -445,31 +634,42 @@ if (LocoNumbers<=0){// only do this if we have no loco list!
          Message_Decoded = true; }
      if (strncmp("<sw id=",PayloadAscii,7)==0){
          Message_Decoded = true; }
-       //switch off debug
-       Message_Decoded=true;      
+     if (strncmp("<model cmd=\"lcprops\" ",PayloadAscii,20)==0){
+         Message_Decoded = true; }
+     // end of other known but unimportant (to me in this code) messages    
+     
+      //switch off debug here
+      // Message_Decoded=true; 
+           
  if(!Message_Decoded){
+   if ((strncmp("rocnet", topic, 6) == 0)) {  Serial.println(""); Serial.print("Unknown rocnet MSG is topic<"); Serial.print(topic);Serial.print(">  <");Serial.print(Show_ROC_MSG(Length));}
+       else{
     Serial.println();
-    Serial.print(F("--Service Info Message- Length:"));
-    Serial.print(Length);Serial.print(F("  ="));
+    Serial.print(F("--Service  Message- Length:"));
+    Serial.print(Length);Serial.print(F("  (truncated version shown)="));
     //unsigned int y;
-    y= MQTT_MAX_PACKET_SIZE;
-    Serial.print((100*Length)/MQTT_MAX_PACKET_SIZE);Serial.println(F("% msg size used"));
-    Serial.print("begins:"); for (byte i = 1; i <= 60; i++) {
+    //MQTT_MAX_PACKET_SIZE should be around 10000;
+    Serial.print((100*Length)/10000);Serial.print(F("% msg size used"));
+    Serial.println(""); Serial.print(PayloadAscii);
+    /*
+    for (byte i = 0; i <= 120; i++) {
       Serial.print(PayloadAscii[i]);} 
-      Serial.println();
-    
+    */
+    Serial.println("");
+       }
     //return;
  
       }
        
   
-
- Message_Decoded=true;  // switch off printout 
+// of not decoded, then it  must be something else so print for debugging....
+//Message_Decoded=true;  // switch off detailed printout 
 // of not decoded, then it  must be something else so print for debugging....
 
 //debug printing
 if (!Message_Decoded){
  bool NewLine;
+ Serial.println("");
  Serial.println(F("**  MQTT FETCHED - but Not decoded"));
  Serial.print("**  Topic <");
  for (byte i = 0; i <= strlen(topic); i++) {Serial.print(topic[i]);}
@@ -501,11 +701,11 @@ void MQTTRocnetSend (char* topic, uint8_t * payload) { //replaces rocsend
   client.publish(topic, payload, Length);
 }
 
-void MQTTSend (char* topic, char* payload) { //replaces rocsend
+void MQTTSend (String topic, String payload) { //replaces rocsend
   uint8_t Length;
   digitalWrite (LED_BUILTIN, HIGH) ;  /// turn On
-  Length = sizeof(payload);
-  client.publish(topic, payload, Length);
+  Length = payload.length();
+  client.publish(topic.c_str(), payload.c_str(), Length);
 
 }
 
@@ -528,15 +728,12 @@ void MQTT_Loop(void){
 }
 //extern uint16_t HandControlID;
 
-
-void DebugMsgSend (char* topic, char* Debug_Payload) { // use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
+void DebugMsgSend (String topic, String Debug_Payload) { // use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
   char DebugMsgLocal[127];
     char DebugMsgTemp[127];
   int cx;
 
-
-  cx= sprintf ( DebugMsgTemp, " Throttle:  Msg:%s",   Debug_Payload);
-
+  cx= sprintf ( DebugMsgTemp, " Throttle<%s>  Msg:%s",NameOfThisThrottle.c_str(),Debug_Payload.c_str());
    // add timestamp to outgoing message
 if ((hrs==0)&&(mins==0)){// not Synchronised yet..
   cx=sprintf(DebugMsgLocal," Time not synchronised yet %s",DebugMsgTemp);
@@ -549,15 +746,15 @@ if ((hrs==0)&&(mins==0)){// not Synchronised yet..
 
  
     if ((cx <= 120)) {
-      client.publish(topic, DebugMsgLocal, strlen(DebugMsgLocal));
+      client.publish(topic.c_str(), DebugMsgLocal, strlen(DebugMsgLocal));
                      }
-    if ((cx >= 120) && (strlen(Debug_Payload) <= 100)) {
-      cx= sprintf ( DebugMsgLocal, "MSG-%s-", Debug_Payload);
-      client.publish(topic, DebugMsgLocal, strlen(DebugMsgLocal));
+    if ((cx >= 120) && (strlen(Debug_Payload.c_str()) <= 100)) {
+      cx= sprintf ( DebugMsgLocal, "MSG-%s-", Debug_Payload.c_str());
+      client.publish(topic.c_str(), DebugMsgLocal, strlen(DebugMsgLocal));
                                           }// print just msg  line
-    if (strlen(Debug_Payload) >= 101) {
+    if (strlen(Debug_Payload.c_str()) >= 101) {
       cx= sprintf ( DebugMsgLocal, "  Time %d:%d:%ds Msg TOO Big to print",   hrs, mins, secs);
-      client.publish(topic, DebugMsgLocal, strlen(DebugMsgLocal));
+      client.publish(topic.c_str(), DebugMsgLocal, strlen(DebugMsgLocal));
     }
 
  }
@@ -618,7 +815,8 @@ void reconnect() {
       client.subscribe("rocrail/service/info", 1 ); // server information
       client.subscribe("rocnet/ck", 1 ); // Clock synch  information
       client.subscribe("rocnet/ps", 1 ); // Data from the rocnode
-     // client.subscribe("rocrail/service/client", 1 ); // an we see client data? test..       
+      //client.subscribe("rocnet/#", 1 ); // Data from all the rocnet msgs
+      client.subscribe("rocrail/service/client", 1 ); // so can we see client data? test..       
      // delay(100);
 
      // no eeprom used in this sketch  EPROM_Write_Delay = millis();
