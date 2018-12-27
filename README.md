@@ -21,19 +21,16 @@ Pressing "Left" at any time will reboot the code. Do not blame me, the switch is
 ## Getting the Loco List
 
 Pressing "Select" OR "Right" both now trigger the Lcprops message, so its easier to get the loco list (My 5 way switches are sometimes hard to "select")
-There is a new check for previously seen locos, BUT IF the throttle sees a lc message loco with a name it has seen already, it immediately assumes it has now seen the whole list and will not add any more locos to its internal list. 
-
-This has some "interesting" consequences..Remember that any rocrail speed change triggers a lc message that can be mistaken for a LCprops response, and you will see that when any throttle (including rocrail) sends speed commands to a loco, the wiireless throttle sees these commands and if it has not got a complete list of locos, will try to add the loco name (but note the speed command does not include Vmax etc or function name parameters) to its internal list of available locos. 
-So, when a SECOND speed command is sent to the same loco, then the wireless throttle code will assume that it has now seen the whole loco list, and it will not allow any more items to be added to its internal loco list. 
-
-This could be useful to set a throttle to a single loco for a beginner (but resetting the throttle and then pressing in or right (before anyone else commands a speed change) will once again allow the throttle to control ANY loco).  BUT note that if you are not using my #rotary define, the code will try to use the Rocrail Vmin, Vcruise,Vmax etc setting, BUT will not have see the real properties, so these will be set to zero, so speed changes will not work. (Function commands to send sounds etc should work). Again, this mmight be a nice feature for beginners, but I doubt it!
 
 You can now also "cycle" the menu levels around and providing you do not change the loco selection, the speed will remain as set. 
 If you do change the loco selection, then the speed will set to zero to prevent mishaps.   
 
+When you "select" a Loco and change to the speed view, the throttle requests Function settigs from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.
+
 ## Speeds
-Because of the simplicity of the throttle, I decided to use the Rocrail preset speeds if the rotary switch is not used. So the slowest the loco can move is the first Vmin step, going up 4 stages to V-Max. All these settings will be set per loco and so VMax for one loco will be different from another. So the first acceleration will take the loco to V-Min, followed by V-Mid etc. This is similar in principle to how the automatic control in Rocrail works.
-If you are using the rotary switch version, speeds are changed in "1" steps by the rotary control and "10" steps by the up and down buttons. If you are at speed zero, pressing the select (in) button sounds F1. If you are moving, pressing the same button acts as an emergency brake and sets speed zero.
+Because of the simplicity of the throttle, from V006 the step speed changes have been removed. 
+
+The rotary switch changes speeds in "1" steps by the rotary control and "10" steps by the up and down buttons. If you are at speed zero, pressing the select (in) button sounds F2. (F2 is 'Toot' on all my locos) {you can change this in Menu.h, line 357} If you are moving, pressing the same button acts as an emergency brake and sets speed zero.
 
 
 ## Hardware
