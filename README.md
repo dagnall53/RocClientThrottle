@@ -12,11 +12,11 @@ If you have >100 locos you should be considering another "proper" throttle!
 Compile using the Board = "NodeMCU 1.0 (ESP12E Module)" option.  
 Then, after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" (or "right") and the list should populate with your list of locos from Rocrail. 
 When in the top level of the menu, Press the button "up" or "down" to select the loco you want to use.
-Press "right" (Away from the OLED) and the screen will show the loco name, and "Speed:0 STOP". The throttle uses the Rocrail loco speeds V_min, V_Mid, V_Cru and V_Max as set for the loco in Rocrail, and can select these speeds in forwards and reverse by selecting Up and down. Pressing the button "in" when moving and the speed is set to 0. Pressing the putton in when the sped iIS 0 will send F2 to the loco which on most is a toot. 
-From Speed, press "right" to access a screen where Fn 1-8 can be momentarily triggered. This screen also allows the lights to be turned on and off in position F0. 
+Press "right" (Away from the OLED) and the screen will show the loco name, and "Speed:0". Pressing the button "in" when moving and the speed is immediately set to 0 {STOP}. Pressing the putton in when the speed IS 0 will send F2 to the loco which on most locos is a toot. 
+From Speed, press "right" to access a screen where the functions can be set/checked . This screen also allows the lights to be turned on and off in position F0. From V006 the throttle picks up the function names defined in the Rocrail Loco table. 
 From the Fn selection screen, press "right" again to scroll to the loco selection screen.
 
-Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!.
+Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!. I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently {v006} commented out {RocClientThrottle.ino line 393} and UNTESTED {IE  my board crashed when I tested it !!} . 
 
 ## Getting the Loco List
 
