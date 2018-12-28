@@ -100,14 +100,14 @@ int Count(unsigned int start,char* id, byte* data,unsigned int Length) {// to fi
  extern const int MaxAttribSize=35 ;
  extern char FoundAttrib[MaxAttribSize];
  
-char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to find string First then string id in data 
- int count;int allsame;int Firstcount; int Y; int Z;
- unsigned int id_Length;
+char* ParseforAttribute(String First, String AttributeName, char End, byte* data,unsigned int Length){; // to find string First then string AttributeName and get chars after that up to Char End in data 
+int count;int allsame;int Firstcount; int Y; int Z;
+ unsigned int AttributeName_Length;
  unsigned int First_Length;
  bool FirstFound;
  bool SentFirstMsg;bool SentSecondMsg;
   First_Length = (First.length())-1;
-  id_Length = (id.length())-1;
+  AttributeName_Length = (AttributeName.length())-1;
   count=0;
   SentFirstMsg=false;
   SentSecondMsg=false; 
@@ -115,10 +115,10 @@ char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to
   
  // for debug 
  #ifdef _attribdebugplus 
-  Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(id);Serial.println(">  ");
+  Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(AttributeName);Serial.println(">  ");
  #endif 
  FirstFound=false;  
-    for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
+    for (unsigned int x=0 ; x<= Length-AttributeName_Length-20; x++){
        allsame=0;
        Firstcount=0;
 
@@ -131,7 +131,7 @@ char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to
                                //                Serial.print(char(data[x+te]));
                                  //                    }Serial.println("}");}
                          #endif
-            if (First[w]==char(data[x+w])){Firstcount=Firstcount+1;}//loop checks each byte of id
+            if (First[w]==char(data[x+w])){Firstcount=Firstcount+1;}//loop checks each byte of AttributeName
                 if (Firstcount==First_Length+1){
                     FirstFound=true;
                           Z=x; // store offset in case we need it later
@@ -142,29 +142,29 @@ char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to
                          #endif
                                               } // we found First text 
                                              } // end of w loop
-                // now look on for text id from this point on
+                // now look on for textAttributeNamefrom this point on
                 
   if (FirstFound){  
      #ifdef _attribdebugplus  
            Serial.print(char(data[x+Z]));
            #endif
     allsame=0;            
-           for (int y=0;y<=(id_Length);y++){  Y=y; 
-           if (id[y]==char(data[x+y])){allsame=allsame+1;
+           for (int y=0;y<=(AttributeName_Length);y++){  Y=y; 
+           if (AttributeName[y]==char(data[x+y])){allsame=allsame+1;
            #ifdef _attribdebugplus  
        //    Serial.print("!");
            #endif
                                                   }// all the same so far
-                                       }//y loop checks each byte of id
-                if (allsame==id_Length+1){count=count+1;} // count 
-                if (count==1){  // found  nth occurrence of id
+                                       }//y loop checks each byte of AttributeName
+                if (allsame==AttributeName_Length+1){count=count+1;} // count 
+                if (count==1){  // found  nth occurrence of AttributeName
          // for debug
           #ifdef _attribdebugplus        
                      Serial.print("found Second text at char<");Serial.print(x);Serial.print(">  is<");
           #endif
                for (int z=0 ;z<=MaxAttribSize;z++) { 
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
-                   if (data[x+Y+z+1]==34){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
+                   if (data[x+Y+z+1]==End){FoundAttrib[z]=0;  // end of data with char End eg, 34 == (")
                    for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
                     // for debug  
                      #ifdef _attribdebugplus 
@@ -185,7 +185,11 @@ char* AttribPlus(String First, String id, byte* data,unsigned int Length) {// to
  return FoundAttrib;
 }
 
-char* Attrib(unsigned int Nth,String id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
+
+
+
+char* Attrib(char End,String id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
+ int Nth=1;
  int count;int allsame;int Y;
  unsigned int id_Length;
  //const int MaxAttribSize =35;
@@ -223,7 +227,7 @@ char* Attrib(unsigned int Nth,String id, byte* data,unsigned int Length) {// to 
           #endif
                for (int z=0 ;z<=MaxAttribSize;z++) { 
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
-                   if (data[x+Y+z+1]==34){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
+                   if (data[x+Y+z+1]==End){FoundAttrib[z]=0;  // end of data with ascii dec 34 == (")
                    for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
                     // for debug  
                      #ifdef _attribdebug 
@@ -245,69 +249,11 @@ char* Attrib(unsigned int Nth,String id, byte* data,unsigned int Length) {// to 
 }
 
 
-char* AttribColon(unsigned int Nth,String id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
- int count;int allsame;int Y;
- unsigned int id_Length;
- //const int MaxAttribSize =35;
- //char FoundAttrib[MaxAttribSize];// FoundAttrib= will be the attributes found by this function;
-  //char* FoundAttrib;// FoundAttrib= will be the attributes found by this function;
-  // FoundAttrib="";// instantiate string or get problems later!
- 
-  id_Length = (id.length())-1;
-  count=0;
- // for debug 
- #ifdef _attribdebugc 
-     Serial.println();Serial.print("starting colon ended search for <");Serial.print(id_Length+1);Serial.print( "> bytes of entry <");Serial.print(Nth);Serial.print("> for <");Serial.print(id);Serial.print("> .in.. ");
- #endif 
-
-  for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
-  
-  // for debug  
- //for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
- // Serial.print(char(data[x])); }
- // Serial.println("");
-  
-  for (unsigned int x=0 ; x<= Length-id_Length-20; x++){
-       allsame=0;
-       for (int y=0;y<=(id_Length);y++){  Y=y; if (id[y]==char(data[x+y])){allsame=allsame+1; 
-                                  //Serial.print(allsame); 
-                                       }// all the same so far
-                                       }//y loop checks each byte of id
-  
-        if (allsame==id_Length+1){count=count+1;} // count 
-            if (count==Nth){
-         // for debug
-          #ifdef _attribdebugc        
-              Serial.print("Attrib colon found Nth text at char<");Serial.print(x);Serial.print(">  is<");
-          #endif
-               for (int z=0 ;z<=MaxAttribSize;z++) { 
-                   //FoundAttrib[z]=char(data[x+Y+z+1]);
-                   if (data[x+Y+z+1]==58){FoundAttrib[z]=0;  // end of data with ascii dec 58 == (:)
-                                          FoundAttrib[z+1]=0; // need extra zero?
-                   //for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
-                    // for debug  
-                     #ifdef _attribdebugc 
-                      Serial.println(">");
-                     #endif
-                     //delayMicroseconds(3);// a short delay seems essential if char* foundattrib is defined INSIDE the function..the  3us is recomended minimum 
-                   return FoundAttrib;}
-                else{FoundAttrib[z]=char(data[x+Y+z+1]);
-                  // for debug 
-                   #ifdef _attribdebugc 
-                    Serial.print(FoundAttrib[z]);
-                   #endif  
-                  }
-         }// z loop
-    } //if nth occurance  same
- 
-   } //x loop
- return FoundAttrib;
-}
 extern void Picture();
 
 void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
        // propslist gives just one loco at a time so the Attrib length is 1 every time. but will be stored in index [loco]
-      LOCO_id[loco]=Attrib(1,"<lc id=\"",payload,Length);   
+      LOCO_id[loco]=Attrib('\"',"<lc id=\"",payload,Length);   
       //Serial.print("Name read for loco id[");Serial.print(loco);Serial.print("] <");Serial.print(LOCO_id[loco]);
       //Serial.println("> ");
    }
@@ -323,9 +269,10 @@ void ParseLocoFunctionsList(byte loco, byte* payload, unsigned int Length){
       LookFor+="\""; 
       FirstText=" text=\"";
       SecondText=" timer=\"";
-      FunctionName[index] = AttribPlus(LookFor,FirstText,payload,Length);
-      FunctionTimer[index] = atoi(AttribPlus(LookFor,SecondText,payload,Length));
-     // Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> Timer:"); Serial.println(FunctionTimer[index]);
+ //     FunctionName[index] = AttribPlus(LookFor,FirstText,payload,Length);
+      FunctionName[index] = ParseforAttribute(LookFor,FirstText,'\"',payload,Length);
+      FunctionTimer[index] = atoi(ParseforAttribute(LookFor,SecondText,'\"',payload,Length));
+   //   Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> Timer:"); Serial.println(FunctionTimer[index]);
       //Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> "); Serial.print("timer");Serial.print(" <");Serial.print(FunctionTimer[index]); Serial.print("> ");
       }
      // Serial.println("> ");
@@ -333,10 +280,10 @@ void ParseLocoFunctionsList(byte loco, byte* payload, unsigned int Length){
 void ParseSwitchList(byte Switch, byte* payload, unsigned int Length){
   String Result;
      // allow processor to do other things?
-         SW_id[Switch]=Attrib(1,"\" id=\"",payload,Length);  // {" id="}
-         Result=Attrib(1," bus=\"",payload,Length);
+         SW_id[Switch]=Attrib('\"',"\" id=\"",payload,Length);  // {" id="}
+         Result=Attrib('\"'," bus=\"",payload,Length);
          SW_bus[Switch]=Result.toInt();
-         Result=Attrib(1," addr1=\"",payload,Length);
+         Result=Attrib('\"'," addr1=\"",payload,Length);
          SW_addr[Switch]=Result.toInt();
      SwitchNumbers=Switch+1;
      if (SwitchNumbers>=MAXLOCOS-1) {SwitchNumbers=MAXLOCOS-1;}
@@ -472,12 +419,12 @@ void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces or
       }
 // is it a service info message?
 if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
-    if (strlen(Attrib(1,"<lc ",payload,Length))>=1){ThisID=Attrib(1,"id=\"",payload,Length);
+    if (strlen(Attrib('\"',"<lc ",payload,Length))>=1){ThisID=Attrib('\"',"id=\"",payload,Length);
     //Serial.println(ThisID); // added for tests
     }
     
  bool same; 
-  if ((!Message_Decoded)&&(strlen(Attrib(1,"<lc id=\"",payload,Length))>=1)&&(strlen(Attrib(1,"prev_id=\"",payload,Length))>=1)){ // {does it contain "<lc id="  and "prev_id=" as well is should only capture lcprops messages?
+  if ((!Message_Decoded)&&(strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1)&&(strlen(Attrib('\"',"prev_id=\"",payload,Length))>=1)){ // {does it contain "<lc id="  and "prev_id=" as well is should only capture lcprops messages?
            // this is may be data about a new loco ?
           // Serial.print("This ID is <");Serial.print(ThisID);Serial.print("> Loco list is ");
           // for (int check=0; check<=5 ;check++) { Serial.print("; [");Serial.print(check);Serial.print("] <");Serial.print(LOCO_id[check]);Serial.print("> ");}
@@ -511,12 +458,15 @@ bool FN_attribute;
 String MSG;
 // format #1
 MSG="<fn fnchanged=\"";
-if ((strlen(Attrib(1,MSG,payload,Length))>=1)){  
+if ((strlen(Attrib('\"',MSG,payload,Length))>=1)){  
                  
-              LocoIDForFnChanged=AttribPlus("<fn fnchanged","id=\"",payload,Length);
-              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print(" Me");
-              FN_seen=atoi(Attrib(1,"<fn fnchanged=\"",payload,Length));
-              FN_state_string=AttribPlus("<fn fnchanged","fnchangedstate=\"",payload,Length);
+              LocoIDForFnChanged=ParseforAttribute("<fn fnchanged","id=\"",'\"',payload,Length);
+              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print("~ For Me");
+              FN_seen=atoi(Attrib('\"',"<fn fnchanged=\"",payload,Length));
+              MSG=" f";
+              MSG+=FN_seen;
+              MSG+="=\"";
+              FN_state_string=ParseforAttribute("<fn fnchanged",MSG,'\"',payload,Length);
               if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
               FunctionState[FN_seen]=FN_attribute;
                     Serial.print(F(" Function changed seen "));
@@ -528,14 +478,14 @@ if ((strlen(Attrib(1,MSG,payload,Length))>=1)){
              }
 // format #2
 MSG="<fn id=\"";
-if ((!Message_Decoded)&&(strlen(Attrib(1,MSG,payload,Length))>=1)){  
-              LocoIDForFnChanged=Attrib(1,MSG,payload,Length);
+if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){  
+              LocoIDForFnChanged=Attrib('\"',MSG,payload,Length);
               if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print(" Me");
-              FN_seen=atoi(AttribPlus(MSG,"\" f",payload,Length));
+              FN_seen=atoi(ParseforAttribute(MSG,"\" f",'\"',payload,Length));
               MSG=" f";
               MSG+=FN_seen;
               MSG+="=\"";
-              FN_state_string=Attrib(1,MSG,payload,Length);
+              FN_state_string=Attrib('\"',MSG,payload,Length);
               if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
               FunctionState[FN_seen]=FN_attribute;
                     Serial.print(F(" Fn change seen "));
@@ -544,76 +494,48 @@ if ((!Message_Decoded)&&(strlen(Attrib(1,MSG,payload,Length))>=1)){
               }
                             Message_Decoded = true;// we understand this message
              }
+// function change seen in <lc message?             
+//if ((strlen(Attrib('\"',"<lc ",payload,Length))>=1)    &
+//            (strlen(Attrib('\"',"id=\"",payload,Length))>=1)){  
+//              Message_Decoded = true;
+//             }
+
+// speed change??     
 // format #3
 MSG="<lc id=\"";
-if ((!Message_Decoded)&&(strlen(Attrib(1,MSG,payload,Length))>=1)){  
-              LocoIDForFnChanged=Attrib(1,MSG,payload,Length);
-              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()) {Serial.print(" Me ");
-              FN_ascii=(AttribPlus(MSG,"\" f",payload,Length));
-              FN_seen=atoi(AttribPlus(MSG,"\" f",payload,Length));
-              //Serial.print("found  f<");Serial.print(FN_ascii);Serial.println(">   ");
-              if (FN_ascii=="n="){FN_seen=0;   // needs update to remove the =sign before doing the atoi?
-                                 MSG=" fn=\"";           }
-                          else{     
-                              MSG=" f";
-                              MSG+=FN_seen;
-                              MSG+="=\"";}
-                   // Serial.print("looking for<");Serial.print(MSG);Serial.println(">   ");
-              FN_state_string=AttribPlus("<lc id=\"",MSG,payload,Length);
-              if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
-              FunctionState[FN_seen]=FN_attribute;
-                    Serial.print(F(" lc change seen "));
-                    Serial.print("  F<");Serial.print(FN_seen);
-                    Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
-              }
-                            Message_Decoded = true;// we understand this message
-             }
-
-             
-
-
-// function change seen in <lc message?             
-if ((strlen(Attrib(1,"<lc ",payload,Length))>=1)    &
-            (strlen(Attrib(1,"id=\"",payload,Length))>=1)){  
-              Message_Decoded = true;
-             }
-
-// speed change??       
- if ((strlen(Attrib(1,"<lc id= ",payload,Length))>=1)    &
-             (strlen(Attrib(1,"V=\"",payload,Length))>=1)     & 
-             (strlen(Attrib(1,"throttleid=\"",payload,Length))>=1)){
-              if (Attrib(1,"id=\"",payload,Length)==LOCO_id[locoindex].c_str()){//{ // is LCid and V= BUT NOT "prev_id=\"
-              Serial.print(F(" Velocity change seen for:"));
-              ThisSpeed=Attrib(1,"V=\"",payload,Length);
+if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){  
+              LocoIDForFnChanged=Attrib('\"',MSG,payload,Length);
+              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){Serial.print("Speed for Me");
+              Serial.print(F(" Velocity change :"));
+              ThisSpeed=Attrib('\"',"V=\"",payload,Length);
               Serial.print(ThisID);
               
               Serial.print("  ");
               Serial.println(ThisSpeed);
-              if (ThisID==LOCO_id[locoindex]){
-                if(strlen(Attrib(1,"dir=\"false\"",payload,Length))>=1){
+                if(strlen(Attrib('\"',"dir=\"false\"",payload,Length))>=1){
                 speedindex= -ThisSpeed.toInt();}
                 else {speedindex= ThisSpeed.toInt();}
-                }
-               Message_Decoded = true;
-             }}
-        
-  
-// release throttle..
-if (strlen(Attrib(1,"<lc id=\"",payload,Length))>=1){
-      ThisID=Attrib(1,"<lc id=\"",payload,Length);  // get the name now..
-      if (strlen(Attrib(1,"cmd=\"release\"",payload,Length))>=1){ // is this the release message 
+                    }
+                            Message_Decoded = true;// we understand this message
+             }
+
+
+// release throttle.. DOES NOTHING apart from set menu level to zero as a test!!Because we should have more than one loco in the list
+if (strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1){
+      ThisID=Attrib('\"',"<lc id=\"",payload,Length);  // get the name now..
+      if (strlen(Attrib('\"',"cmd=\"release\"",payload,Length))>=1){ // is this the release message 
          //Serial.println("-");
          //Serial.print("Throttle Release for ");
          //Serial.println(ThisID);
-          if ((ThisID==LOCO_id[0])&&(LocoNumbers==1)){
+          if ((ThisID==LOCO_id[0])){
           //Serial.print(F("Throttle Release is for me!"));
           //DebugMsgSend("debug","Throttle control released");
-          DebugSprintfMsgSend(sprintf(DebugMsg," control of %s released",ThisID.c_str()));
-          ThisID="This is an unlikely name";
+          //DebugSprintfMsgSend(sprintf(DebugMsg," control of %s released",ThisID.c_str()));
+          //ThisID="This is an unlikely name";
           //LOCO_id[0]=ThisID;
-          LocoNumbers=0;
-          ParseIndex=0;
-          AllDataRead=false;
+          //LocoNumbers=0;
+          //ParseIndex=0;
+          //AllDataRead=false;
           MenuLevel=0;
                  }}
           Message_Decoded = true;
