@@ -1,5 +1,5 @@
-  #define SSID_RR "linksys-25"
-       #define PASS_RR "msxkhxwa"
+  #define SSID_RR "wifi router"
+       #define PASS_RR "password"
        #define BrokerAddr 11 // sub ip of your MQTT broker  
        #define ThrottleName "DagThrottle"
    #define _ESP32
