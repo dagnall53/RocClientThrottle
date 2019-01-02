@@ -17,7 +17,9 @@ Press "right" (Away from the OLED) and the screen will show the loco name, and "
 From Speed, press "right" to access a screen where the functions can be set/checked . This screen also allows the lights to be turned on and off in position F0. From V006 the throttle picks up the function names defined in the Rocrail Loco table. 
 From the Fn selection screen, press "right" again to scroll to the loco selection screen.
 
-Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!. I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently {v006} commented out {RocClientThrottle.ino line 393} and UNTESTED {IE  my board crashed when I tested it !!} . 
+Pressing "Left" at any time on the esp8266 oled board will reboot the code. Do not blame me, the switch is hardwired to reset!. 
+
+I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently {V8} UNTESTED
 
 ## Getting the Loco List
 
@@ -37,6 +39,8 @@ The rotary switch changes speeds in "1" steps by the rotary control and "10" ste
 ## Hardware
 Designed for "WeMos Battery OLED Board". This includes battery, 5 way switch and Oled.
 Also works with Wemos ESP32 "wifi+bluetooth +battery" board. But you need to add your own switches
+
+Starting with Version 8, most of the hardware wiring is now defined in Secrets.h This was necessary since the ESP32 uses different pinouts in places. 
 
 ## Rocrail Version
 Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops command to itterate all
