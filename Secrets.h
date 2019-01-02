@@ -2,7 +2,7 @@
        #define PASS_RR "password"
        #define BrokerAddr 11 // sub ip of your MQTT broker  
        #define ThrottleName "DagThrottle"
-   #define _ESP32
+   #define _ESP32  // comment this out if compiling for ESP8266 
 // hardware
 static const uint8_t OLED_SCL = 4;
 static const uint8_t OLED_SDA = 5;
