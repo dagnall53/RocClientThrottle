@@ -1,8 +1,46 @@
-    #define SSID_RR "router"
-       #define PASS_RR "password"
-       #define BrokerAddr 21 // sub ip of your MQTT broker ; 
-      #define ThrottleName "RocClientThrottle"   // The name of this throttle, will be seen in Rocrail..
-/* PIN References... Also defined somewhere else in the esp included code so do not unhide this section!!!...
+  #define SSID_RR "linksys-25"
+       #define PASS_RR "msxkhxwa"
+       #define BrokerAddr 11 // sub ip of your MQTT broker  
+       #define ThrottleName "DagThrottle"
+   #define _ESP32
+// hardware
+static const uint8_t OLED_SCL = 4;
+static const uint8_t OLED_SDA = 5;
+// for rotary switch 
+
+// Board dependant
+#ifndef _ESP32
+
+ 
+ const int EncoderPinA = D9;     // == "D9" 3 is  the designation of the A rotary pushbutton pin (common is connected to ground
+ const int EncoderPinB = D4;     // == "D4"  2 is the designation of the B rotary pushbutton pin (common is connected to ground
+ const int RightButton = D3;     // the designation of the right pushbutton pin on wemos 18650 oled board
+ const int SelectButton = D5;     // the designation of the select pushbutton pin
+ const int UpButton = D6;     // the designation of the up pushbutton pin
+ const int DownButton = D7;     // the designation of the down pushbutton pin
+ const int LeftButton = D8;    // left NOT used yet 
+#endif
+
+#ifdef _ESP32  // on esp pins are strictly Px = pin x not Dx = somethong strange as on the ESP8266 
+ // ?? GPIO06 through GPIO11 are reserved for the FLASH. You cannot use them .https://github.com/espressif/arduino-esp32/issues/1411
+ // GPIOs 34-39 are input-only no pullups1
+// OLED_SCL = pin P4;
+// OLED_SDA = pin P5;
+//All pins connect between Ground and designated pin
+
+// const int LED_BUILTIN =16;       // already defined .. onboard LED is pin GPIO 16 ?
+ const int EncoderPinA = 25;     // P34  is  the designation of the A rotary pushbutton pin (common is connected to ground
+ const int EncoderPinB = 26;     // P35 is the designation of the B rotary pushbutton pin (common is connected to ground
+ const int SelectButton = 27;     // P33 is the number of the select pushbutton pin
+ 
+ const int RightButton = 19;     // P32 is the designation of the right pushbutton pin on wemos 18650 oled board
+  const int UpButton = 18;     // P25 is the number of the up pushbutton pin
+ const int DownButton =17;     // P26 is the number of the down pushbutton pin
+ const int LeftButton = 16;    // P27 is the number of the left pushbutton pin NOT used yet 
+#endif
+
+      
+/* PIN References... Also defined somewhere else in the esp8266 included code so do not unhide this section!!!...
   static const uint8_t D0   = 16;  and Red Led on NodeMcu V2 (not present on NodeMCU v3)
   static const uint8_t D1   = 5;
   static const uint8_t D2   = 4;

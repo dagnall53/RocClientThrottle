@@ -6,6 +6,7 @@
 // DEBUG, use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
 #define MAXLOCOS 40  // the number we can store (+1 as we use 0) (limited by memory size 
                       // >150 crashes the throttle, 100 seems a practical max ! The exact limit is unexplored 
+#define N_Functions 16
 
 //void testConnection  (int Number);
 void SetWordIn_msg_loc_value(uint8_t* msg, uint8_t firstbyte, int value);

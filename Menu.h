@@ -14,9 +14,10 @@ extern byte ParseIndex;
 extern bool AllDataRead;
 extern void GetLocoList();
 extern void GetLocoFunctions(int index);
-extern String FunctionName[16];
-extern bool FunctionState[16];
-extern int FunctionTimer[16];
+
+extern String FunctionName[(N_Functions+1)];
+extern bool FunctionState[(N_Functions+1)];
+extern int FunctionTimer[(N_Functions+1)];
 bool FunctionActive;
 /*char* Str2Chr(String stringin){
   char* Converted;
@@ -66,7 +67,7 @@ if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when s
   MQTTSend("rocrail/service/client",MsgTemp);
 }
 
-extern int FunctionTimer[16];
+
 void Send_function_command(int locoindex,int fnindex, bool state){
   char MsgTemp[200];
   int cx;
@@ -94,46 +95,42 @@ extern void Picture();
 
 void DoDisplay(int MenuLevel){
      //display.clear;
-String SpeedIndexString = String(speedindex);
-String FnIndexString= String(fnindex);
-String SpeedSelected;   
-String TopMessage = "---Select Loco---";
-String BottomMessage = "Selected:";
-String MSGText;
-BottomMessage += locoindex+1;
-BottomMessage += " of :";
-BottomMessage += (LocoNumbers);
-BottomMessage+= " selected";
+  String SpeedIndexString = String(speedindex);
+  String FnIndexString= String(fnindex);
+  String SpeedSelected;   
+  String TopMessage = "---Select Loco---";
+  String BottomMessage = "Selected:";
+  String MSGText;
+  BottomMessage += locoindex+1;
+  BottomMessage += " of :";
+  BottomMessage += (LocoNumbers);
+  BottomMessage+= " available";
 
-switch (MenuLevel){
+  switch (MenuLevel){
   
- case 0:  // top level
- display.setFont(ArialMT_Plain_10);
-// only display this if we actually have a loco list!
-if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
-   display.drawString(64,1,"No Loco");
-  display.drawString(64,16,"List yet");}
-else{
-    display.drawString(64,54,BottomMessage);
-    display.setFont(ArialMT_Plain_10);
-    display.drawString(64,0,TopMessage);
-
-    
-    if (locoindex>=1){
-     display.setFont(ArialMT_Plain_10);
-     display.drawString(64,16,LOCO_id[locoindex-1]);
-        }
-        
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
+     case 0:  // top level
+   display.setFont(ArialMT_Plain_10);
+  // only display this if we actually have a loco list!
+    if (LocoNumbers<=0){
      display.setFont(ArialMT_Plain_16);
-     display.drawString(64,26,LOCO_id[locoindex]);
-   if (locoindex<=LocoNumbers-1){
-     display.setFont(ArialMT_Plain_10);
-     display.drawString(64,40,LOCO_id[locoindex+1]);
-   }       
-   
-}   
+    display.drawString(64,1,"No Loco");
+    display.drawString(64,16,"List yet");}
+  else{
+       display.drawString(64,54,BottomMessage);
+       display.setFont(ArialMT_Plain_10);
+       display.drawString(64,0,TopMessage);
+       if (locoindex>=1){
+         display.setFont(ArialMT_Plain_10);
+         display.drawString(64,16,LOCO_id[locoindex-1]);
+           }
+       display.setTextAlignment(TEXT_ALIGN_CENTER);
+       display.setFont(ArialMT_Plain_16);
+       display.drawString(64,26,LOCO_id[locoindex]);
+       if (locoindex<=LocoNumbers-2){
+        display.setFont(ArialMT_Plain_10);
+        display.drawString(64,40,LOCO_id[locoindex+1]);
+         }       
+      }   
   
       break;
  case 1: // selected loco, set speed
@@ -229,14 +226,12 @@ switch (MenuLevel){
   
 
 }
-#ifndef Rotary
-if (speedindex>=4){speedindex=4;}
-#endif
-#ifdef Rotary
+
+
 if (speedindex>=100){speedindex=100;}
-#endif
+
 if (locoindex <=0) {locoindex=0;}
-if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
+if (locoindex>=LocoNumbers-1){locoindex=LocoNumbers-1;}
 }
 
 void ButtonUp(int MenuLevel){
@@ -261,14 +256,12 @@ switch (MenuLevel){
  break;
   
 }
-#ifndef Rotary
-if (speedindex<=-4){speedindex=-4;}
-#endif
-#ifdef Rotary
+
+
 if (speedindex<=-100){speedindex=-100;}
-#endif
+
 if (locoindex <=0) {locoindex=0;}
-if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
+if (locoindex>=LocoNumbers-1){locoindex=LocoNumbers-1;}
 }
 
 
@@ -551,7 +544,7 @@ case 3:
 display.display(); 
 }
 
-extern bool buttonState5;
+extern bool SelectButtonState;
 void ButtonDown(int MenuLevel){
   Serial.print("DOWN");
 switch (MenuLevel){
@@ -560,14 +553,14 @@ switch (MenuLevel){
  switchindex=switchindex-1;
  break;
  case 1:  // top level
- if(buttonState5){ LeftIndexPos=LeftIndexPos+2;}
+ if(SelectButtonState){ LeftIndexPos=LeftIndexPos+2;}
  else  {LeftIndexPos=LeftIndexPos+15;}
  if (LeftIndexPos>=600){LeftIndexPos=600;}
   UpdateSetPositions();
   SetSwitch(switchindex,0);
  break;
  case 2:
- if(buttonState5){RightIndexPos=RightIndexPos+2;}
+ if(SelectButtonState){RightIndexPos=RightIndexPos+2;}
  else{RightIndexPos=RightIndexPos+15;}
  if (RightIndexPos>=600){RightIndexPos=600;}
   UpdateSetPositions();
@@ -592,7 +585,7 @@ switch (MenuLevel){
  switchindex=switchindex+1;
  break;
  case 1:  // level 1 (left)
- if(buttonState5){LeftIndexPos=LeftIndexPos-2;}
+ if(SelectButtonState){LeftIndexPos=LeftIndexPos-2;}
  else{LeftIndexPos=LeftIndexPos-15;}
  if (LeftIndexPos<=160){LeftIndexPos=160;}
  UpdateSetPositions();
@@ -600,7 +593,7 @@ switch (MenuLevel){
 
  break;
  case 2:
- if(buttonState5){RightIndexPos=RightIndexPos-2;}
+ if(SelectButtonState){RightIndexPos=RightIndexPos-2;}
   else {RightIndexPos=RightIndexPos-15;}
  if (RightIndexPos<=160){RightIndexPos=160;}
  UpdateSetPositions();
