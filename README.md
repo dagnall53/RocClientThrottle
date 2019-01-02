@@ -47,11 +47,9 @@ Uses:
       To get xbm images working with the <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306 it is essential to download and use GIMP https://www.gimp.org/downloads/ Load your image, then export as XBM. None of the simpler LCD image tools correctly format for the XBM format and all I tested had the bit order wrong for the code. Thanks to Jan Vanderborden for directing me in the direction of a solution! 
 
   * Rotary Encoder (#include <Encoder.h>) by Pul Stoffregen * http://www.pjrc.com/teensy/td_libs_Encoder.html
-  * MQQT interface (#include <PubSubClient.h>) https://github.com/knolleary/pubsubclient
-
-   Its very important to increase the size that the MQTT interface can use: 
-     // put this in pubsubclient.h in your arduino/libraries/PubSubClint/src 
-     #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+  * MQQT interface (#include <PubSubClient.h>) https://github.com/knolleary/pubsubclient  ...Its very important to increase the size that the MQTT interface can use:  // SO.. put this modification in pubsubclient.h in your arduino/libraries/PubSubClint/src (somewhere like line 26 )
+  
+     #define MQTT_MAX_PACKET_SIZE 10000   // Because Rocrails lclist is very LONG for a MQQT message...!
 
 
 I am not connected to Rocrail, I just like it and use it.
