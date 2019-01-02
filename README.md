@@ -1,5 +1,6 @@
 # RocClientThrottle
 A WiFi Rocrail Client throttle 
+WITH ESP32 compatibility
 
 
 ## A very simple throttle for Rocrail. 
@@ -35,16 +36,23 @@ The rotary switch changes speeds in "1" steps by the rotary control and "10" ste
 
 ## Hardware
 Designed for "WeMos Battery OLED Board". This includes battery, 5 way switch and Oled.
+Also works with Wemos ESP32 "wifi+bluetooth +battery" board. But you need to add your own switches
 
 ## Rocrail Version
 Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops command to itterate all
 
 ## Notes
-To get xbm images working with the <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306 it is essential to download and use GIMP https://www.gimp.org/downloads/ Load your image, then export as XBM. None of the simpler LCD image tools correctly format for the XBM format and all I tested had the bit order wrong for the code. Thanks to Jan Vanderborden for directing me in the direction of a solution! 
+Uses: 
+  * SSD 1306 OLED library (#include "SSD1306Wire.h") ` //https://github.com/ThingPulse/esp8266-oled-ssd1306
+      To get xbm images working with the <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306 it is essential to download and use GIMP https://www.gimp.org/downloads/ Load your image, then export as XBM. None of the simpler LCD image tools correctly format for the XBM format and all I tested had the bit order wrong for the code. Thanks to Jan Vanderborden for directing me in the direction of a solution! 
 
-Its very important to increase the size that the MQTT interface can use: 
-// put this in pubsubclient.h in your arduino/libraries/PubSubClint/src 
-#define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+  * Rotary Encoder (#include <Encoder.h>) by Pul Stoffregen * http://www.pjrc.com/teensy/td_libs_Encoder.html
+  * MQQT interface (#include <PubSubClient.h>) https://github.com/knolleary/pubsubclient
+
+   Its very important to increase the size that the MQTT interface can use: 
+     // put this in pubsubclient.h in your arduino/libraries/PubSubClint/src 
+     #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+
 
 I am not connected to Rocrail, I just like it and use it.
 
