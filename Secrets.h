@@ -1,6 +1,6 @@
   #define SSID_RR "Router" //now saved in eeprom, just here incase eeprom is empty
        #define PASS_RR "Password"//now saved in eeprom, just here incase eeprom is empty
-       int BrokerAddr = 11; // sub ip of your MQTT broker  
+       int BrokerAddrDefault = 11; // sub ip of your MQTT broker 
        #define ThrottleName "DagThrottle"
 //  #define _ESP32
 // hardware
