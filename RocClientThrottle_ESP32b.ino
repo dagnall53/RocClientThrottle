@@ -108,7 +108,7 @@ char DebugMessage[128];
 
 #include <EEPROM.h>
 #define _EEPROMdebug // adds serial debug helpers
- 
+int BrokerAddr;  
 void writeString(char add,String data);  // defned here to allow use later but before its defined..
 String read_String(char add);             // defned here to allow use later but before its defined..
 int ssidEEPROMLocation = 10;
@@ -375,7 +375,7 @@ void setup() {
   // set the builtin LED pin to work as an output
   pinMode(LED_BUILTIN, OUTPUT);
   WIFI_SETUP=false;
-  
+  BrokerAddr=BrokerAddrDefault;
   wifiSSID=read_String(ssidEEPROMLocation);
   wifiPassword=read_String(passwordEEPROMLocation);
   BrokerAddr=EEPROM.read(BrokerEEPROMLocation);
