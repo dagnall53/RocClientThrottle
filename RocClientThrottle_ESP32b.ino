@@ -382,7 +382,7 @@ void setup() {
 
   if (wifiSSID==""){wifiSSID=SSID_RR;}         // if empty, try the secrets default
   if (wifiPassword==""){wifiPassword=PASS_RR;} // if empty, try the secrets default
-  if (BrokerAddr==0){BrokerAddr=BrokerAddr;}   // zero is not a valid Ip for the broker
+  if (BrokerAddr==0){BrokerAddr=BrokerAddrDefault;}   // zero is not a valid Ip for the broker
   
  pinMode(RightButton, INPUT_PULLUP);
  pinMode(SelectButton, INPUT_PULLUP);
