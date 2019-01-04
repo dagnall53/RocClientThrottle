@@ -43,7 +43,7 @@ void drawImageDemo() {
 }
 
 extern long ThrottlePosition;
-extern bool EncoderMoved;
+extern bool Encoder_Timeout;
 
 bool LastDir;
 int LastLoco;
@@ -109,61 +109,53 @@ void DoDisplay(int MenuLevel){
   switch (MenuLevel){
   
      case 0:  // top level
-   display.setFont(ArialMT_Plain_10);
-  // only display this if we actually have a loco list!
-    if (LocoNumbers<=0){
-     display.setFont(ArialMT_Plain_16);
-    display.drawString(64,1,"No Loco");
-    display.drawString(64,16,"List yet");}
-  else{
-       display.drawString(64,54,BottomMessage);
-       display.setFont(ArialMT_Plain_10);
-       display.drawString(64,0,TopMessage);
-       if (locoindex>=1){
          display.setFont(ArialMT_Plain_10);
-         display.drawString(64,16,LOCO_id[locoindex-1]);
-           }
-       display.setTextAlignment(TEXT_ALIGN_CENTER);
-       display.setFont(ArialMT_Plain_16);
-       display.drawString(64,26,LOCO_id[locoindex]);
-       if (locoindex<=LocoNumbers-2){
-        display.setFont(ArialMT_Plain_10);
-        display.drawString(64,40,LOCO_id[locoindex+1]);
-         }       
-      }   
+        // only display this if we actually have a loco list!
+        if (LocoNumbers<=0){
+            display.setFont(ArialMT_Plain_16);
+            display.drawString(64,1,"No Loco");
+            display.drawString(64,16,"List yet");}
+       else{
+            display.drawString(64,54,BottomMessage);
+            display.setFont(ArialMT_Plain_10);
+            display.drawString(64,0,TopMessage);
+            if (locoindex>=1){
+               display.setFont(ArialMT_Plain_10);
+               display.drawString(64,16,LOCO_id[locoindex-1]);
+                }
+            display.setTextAlignment(TEXT_ALIGN_CENTER);
+            display.setFont(ArialMT_Plain_16);
+            display.drawString(64,26,LOCO_id[locoindex]);
+            if (locoindex<=LocoNumbers-2){
+               display.setFont(ArialMT_Plain_10);
+               display.drawString(64,40,LOCO_id[locoindex+1]);
+               }       
+           }   
   
       break;
  case 1: // selected loco, set speed
- //show loco
- if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
-   display.drawString(64,1,"No Loco");
-  display.drawString(64,16,"selected");}
-   else
-    {
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
-     display.setFont(ArialMT_Plain_16);
-     display.drawString(64,1,LOCO_id[locoindex]);
-    }
- //show speed 
- SpeedSelected="";
- 
-#ifdef Rotary
-display.drawString(25,28," Speed:");
-display.drawString(90,28,SpeedIndexString);
-#endif
-
-
-
-
+         //show loco
+        if (LocoNumbers<=0){
+             display.setFont(ArialMT_Plain_16);
+             display.drawString(64,1,"No Loco");
+             display.drawString(64,16,"selected");}
+        else{
+          display.setTextAlignment(TEXT_ALIGN_CENTER);
+          display.setFont(ArialMT_Plain_16);
+          display.drawString(64,1,LOCO_id[locoindex]);
+            }
+       //show speed 
+       SpeedSelected="";
+       display.drawString(25,28," Speed:");
+       display.drawString(90,28,SpeedIndexString);
     
       break;
       
 case 2: // selected loco, set fn
  //show loco
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
-     display.setFont(ArialMT_Plain_16);
-     display.drawString(64,1,LOCO_id[locoindex]);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(64,1,LOCO_id[locoindex]);
     
  //show fn
     display.setFont(ArialMT_Plain_10);
@@ -211,10 +203,10 @@ switch (MenuLevel){
  break;
  case 1:  // top level
  speedindex=speedindex+1; // works better to increment with this button
- #ifdef Rotary
- if (!EncoderMoved){ speedindex=speedindex+9;}
+ #ifdef Rotary_Switch
+ if (!Encoder_Timeout){ speedindex=speedindex+9;}
  #endif
- SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+ SetLoco(locoindex,speedindex);// Rotary_Switch sets the loco in a different place
  
  break;
  case 2:
@@ -243,10 +235,10 @@ switch (MenuLevel){
  break;
  case 1:  // level 1
  speedindex=speedindex-1;
- #ifdef Rotary
- if (!EncoderMoved){ speedindex=speedindex-9;}
+ #ifdef Rotary_Switch
+ if (!Encoder_Timeout){ speedindex=speedindex-9;}
  #endif
- SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+ SetLoco(locoindex,speedindex);// Rotary_Switch sets the loco in a different place
   break;
  case 2:
  fnindex=fnindex-1;
@@ -275,9 +267,9 @@ switch (MenuLevel){
  case 0:  // top level 
     GetLocoFunctions(locoindex);
   
-      #ifdef Rotary
-       ThrottlePosition=0; ThumbWheel.write(0);
-       // set rotary to zero  
+      #ifdef Rotary_Switch
+       ThrottlePosition=0; //ThumbWheel.write(0);
+       // set Rotary_Switch to zero  
  
       #endif
       
@@ -355,7 +347,7 @@ void ButtonSelect(int MenuLevel){
  break;
 
  case 1:
- #ifndef Rotary
+ #ifndef Rotary_Switch
  if (speedindex==0){ 
     fnindex=2; 
     Do_Function(locoindex,fnindex);
@@ -365,9 +357,11 @@ void ButtonSelect(int MenuLevel){
    speedindex=0;
    SetLoco(locoindex,speedindex);}
 #endif
-    #ifdef Rotary
+    #ifdef Rotary_Switch
       if (speedindex==0){ Do_Function(locoindex,2); }//toot fn 2 (loco index) 
-       else{  speedindex=0;ThrottlePosition=0;LastThrottlePosition=0; ThumbWheel.write(0); SetLoco(locoindex,speedindex);}
+       else{  speedindex=0;ThrottlePosition=0;LastThrottlePosition=0; 
+       //ThumbWheel.write(0); 
+       SetLoco(locoindex,speedindex);}
 
 #endif
    

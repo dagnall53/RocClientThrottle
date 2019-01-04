@@ -647,9 +647,7 @@ void MQTTSend (String topic, String payload) { //replaces rocsend
 
 //   ++++++++++ MQTT setup stuff   +++++++++++++++++++++
 void  MQTT_Setup(void){
-  
   client.setServer(mosquitto, 1883);   // Hard set port at 1833
-  //client.setServer(mqtt_server, 1883); // old hard set version...
   client.setCallback(MQTTFetch);
 }
 
@@ -661,7 +659,7 @@ boolean MQTT_Connected(void){
 void MQTT_Loop(void){
     client.loop(); //gets wifi messages etc..
 }
-//extern uint16_t HandControlID;
+
 
 void DebugMsgSend (String topic, String Debug_Payload) { // use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
   char DebugMsgLocal[127];
@@ -677,8 +675,8 @@ if ((hrs==0)&&(mins==0)){// not Synchronised yet..
          }
 //
     //Serial.printf("\n *Debug Message:%s Msg Length:%d \n",DebugMsgLocal,cx);
-    Serial.printf("\n *Debug Message:%s  \n",DebugMsgLocal);
-
+ //   Serial.printf("\n *Debug Message:%s  \n",DebugMsgLocal);
+    Serial.printf("\n *Debug Message:%s  ",DebugMsgLocal);
  
     if ((cx <= 120)) {
       client.publish(topic.c_str(), DebugMsgLocal, strlen(DebugMsgLocal));
@@ -739,16 +737,16 @@ void reconnect() {
   sprintf(Msg, "to %i:%i:%i:%i", mosquitto[0],mosquitto[1],mosquitto[1],mosquitto[3]);
   // Loop until we're reconnected 
   digitalWrite (LED_BUILTIN , SignalOFF) ; ///   turn on led 
-  PrintTime(" Attempting MQTT (re)connection. Attempt #");
-  Serial.println(connects);
-  while (!client.connected()) {
-             // for debug     Serial.print("<");Serial.print(ClientName);Serial.print("> looking for MQQT broker @:");Serial.print(mosquitto); Serial.println("  ");
+ 
+  while (!client.connected()) { PrintTime(" Attempting MQTT (re)connection. Attempt #");
+                                Serial.println(connects);
+             // for debug     Serial.print("<");Serial.print(ClientName);Serial.print("> looking for MQTT broker @:");Serial.print(mosquitto); Serial.println("  ");
              // Messages to assist the user....  
                     cx1= sprintf (MsgTL, "%s",ClientName);  // The strange formatting here places the text for Oled disply in Char[127] defined arrays to avoid a compiler deprecation notification.
-                    cx2= sprintf (MsgML, "looking for MQQT broker");  // its not strictly necessary, but I wanted to see if the deprecation warning could be avoided. 
-                     cx= sprintf (MsgBL, "@ addr: %d:%d:%d:%d", mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
+                    cx2= sprintf (MsgML, "looking for MQTT broker");  // its not strictly necessary, but I wanted to see if the deprecation warning could be avoided. 
+                    cx= sprintf (MsgBL, "@ addr: %d:%d:%d:%d", mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
                     OLED_Display(MsgTL,MsgML,MsgBL);
-                   // OLED_Display("Looking for","a MQQT Broker @",MsgBL);  // using this simpler call works, but results in a deprecated complier error notice...
+                   // OLED_Display("Looking for","a MQTT Broker @",MsgBL);  // using this simpler call works, but results in a deprecated complier error notice...
            // Attempt to connect
            if (client.connect(ClientName)) {// can advise this node is now connected 
                               // for debug   Serial.print("connected);  Serial.println();
@@ -762,11 +760,11 @@ void reconnect() {
                                       // no eeprom used in this sketch so no delay needed for write delay EPROM_Write_Delay = millis();
                                             }  
                                             else {  // This is where we go if we are NOT connected
-                                           //Serial.println("~ failed to find MQQT broker ");
+                                           //Serial.println("~ failed to find MQTT broker ");
                                            connects=connects+1;  // Count how many times we do this. So that a single miss to connect to the brokwr does not immediately trigger broker address incrementation
                                           if (connects>=5){  mosquitto[3] = mosquitto[3]+1; }
                                                   if (mosquitto[3]>=50){mosquitto[3]=3;}
-                                                 // Serial.print(" trying MQQT <");Serial.print(mosquitto[3]);Serial.println("> ");  
+                                                 // Serial.print(" trying MQTT <");Serial.print(mosquitto[3]);Serial.println("> ");  
                                            client.setServer(mosquitto, 1883);   // Hard set port at 1833
                                            delay(100);
                                            digitalWrite (LED_BUILTIN , SignalON) ; ///   turn ON
