@@ -6,20 +6,35 @@ WITH ESP32 compatibility
 ## A very simple throttle for Rocrail. 
 Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends each loc as a separate Mqtt message.
 
-This code allows for up to 126 locos. Above this the code gets unstable. 
-If you have >100 locos you should be considering another "proper" throttle!  
+This code is preset for 40 locos. Too many locos and the code may get unstable. 
+If you have lots of locos you should probably be considering a "proper" throttle!, or you can change the #define MAXLOCOS 40 in MQTT.h line 7 
+
+## First Setup
+The hardware now (v 12 on) uses EEPROM for SSID, password Broker addr and Throttle name.
+You can change these by entering "xxx"(+new line) in a terminal connected to the Throttle COM port and set at 115200 baud within 3 seconds or so of the board start up. A prompt:  
+
+"--- To enter new wifi SSID / Password type 'xxx' BEFORE wifi connects---"
+
+"-- Use 'Newline' OR 'CR' to end input line, BUT NOT BOTH together --"
+
+appears in the terminal window and  
+
+"Pause for Serial IO"
+
+appears on the OLED.
+
+If the EEPROM data is not valid (i.e. you have not changed the default SSID in secrets.h) the hardware will force you to enter data before it attempts to log into the router.. 
 
 ## Use
-Compile using the Board = "NodeMCU 1.0 (ESP12E Module)" option.  
-Then, after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" (or "right") and the list should populate with your list of locos from Rocrail. 
-When in the top level of the menu, Press the button "up" or "down" to select the loco you want to use.
-Press "right" (Away from the OLED) and the screen will show the loco name, and "Speed:0". Pressing the button "in" when moving and the speed is immediately set to 0 {STOP}. Pressing the putton in when the speed IS 0 will send F2 to the loco which on most locos is a toot. 
+Compile using the Board = "NodeMCU 1.0 (ESP12E Module)" option for ESP8266  Or "Wemos" Wifi+Bluetooth" for ESP32. Other board selections may work, but have not been tested.
+Then, after the unit has the EEPRO updated via serial (use the Arduino Serial monitor) and has found the wifi router and connected to the MQTT broker the screen will show a list populated with your list of locos from Rocrail. This only shows locos that are "active" and not "Hidden" in the Rocrail locomotives table.  
+When in the top level of the menu, Press the button "up" or "down" (or use the rotary switch) to select the loco you want to use.
+Press "right" (Away from the OLED) and the screen will show the loco name, and "Speed:". Speed should update from Rocrail. Pressing the button "in" when moving and the speed is immediately set to 0 {STOP}. Pressing the putton in when the speed IS 0 will send F2 to the loco which on most locos is a toot. 
 From Speed, press "right" to access a screen where the functions can be set/checked . This screen also allows the lights to be turned on and off in position F0. From V006 the throttle picks up the function names defined in the Rocrail Loco table. 
 From the Fn selection screen, press "right" again to scroll to the loco selection screen.
 
-Pressing "Left" at any time on the esp8266 oled board will reboot the code. Do not blame me, the switch is hardwired to reset!. 
+Pressing "Left" at any time on the esp8266 oled board will reboot the code. Do not blame me, the switch is hardwired to reset!. but I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently UNTESTED.
 
-I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently {V8} UNTESTED
 
 ## Getting the Loco List
 
