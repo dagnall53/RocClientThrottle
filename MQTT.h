@@ -3,9 +3,12 @@
   #include "Arduino.h"
 // planning to use MQTT for sorting out better library partitioning 
 
-// DEBUG, use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
-#define MAXLOCOS 40  // the number we can store (+1 as we use 0) (limited by memory size 
+// FOR DEBUG and to monitor connections, use with mosquitto_sub -h 127.0.0.1 -i "CMD_Prompt" -t debug -q 0
+
+// How many locos and functions can we use...
+  #define MAXLOCOS 126  // the number we can store (+1 as we use 0) (limited by memory size 
                       // >150 crashes the throttle, 100 seems a practical max ! The exact limit is unexplored 
+  #define N_Functions 15   // F0 to F(N_Functions-1) ie if '15', you can get to 'F14'
 
 //void testConnection  (int Number);
 void SetWordIn_msg_loc_value(uint8_t* msg, uint8_t firstbyte, int value);
@@ -34,7 +37,7 @@ void MQTT_Loop(void);
 void DebugMsgSend (String topic, String payload) ;
 void DebugSprintfMsgSend(int CX);
 void PrintTime(String MSG);
-void reconnect(void); 
+void MQTT_ReConnect(void); 
 
 
   #endif

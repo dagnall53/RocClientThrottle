@@ -14,9 +14,13 @@ extern byte ParseIndex;
 extern bool AllDataRead;
 extern void GetLocoList();
 extern void GetLocoFunctions(int index);
-extern String FunctionName[16];
-extern bool FunctionState[16];
-extern int FunctionTimer[16];
+
+extern String FunctionName[(N_Functions+1)];
+extern bool FunctionState[(N_Functions+1)];
+extern bool FunctionStateKnown[(N_Functions+1)];
+extern int FunctionTimer[(N_Functions+1)];
+extern int Loco_V_max;
+extern bool UpdatedRotaryMovementUsed;
 bool FunctionActive;
 /*char* Str2Chr(String stringin){
   char* Converted;
@@ -28,6 +32,63 @@ bool FunctionActive;
    return Converted;
 }
 */
+void drawRect(void) {
+  
+    display.drawRect(0, 0, 8, 8);
+   
+}
+
+
+void fillRect(void) {
+ 
+    display.fillRect(0,0,8,8);
+    
+  }
+int getQuality() { //https://stackoverflow.com/questions/15797920/how-to-convert-wifi-signal-strength-from-quality-percent-to-rssi-dbm
+  if (WiFi.status() != WL_CONNECTED)
+    return -1;
+  int dBm = WiFi.RSSI();   // dBm to Quality: Very roughly!!!
+  if (dBm <= -100)
+    return 0;
+  if (dBm >= -50)
+    return 100;
+  return 2 * (dBm + 100);
+}
+void Bar( int Fill_percent) { 
+  int PosX,PosY,Height,Width,Bar;
+  if (Fill_percent>=100) {Fill_percent=100;}
+  if (Fill_percent<=0) {Fill_percent=0;}
+Width=8;Height=8;
+PosX=120;  // position left right  max = 128
+PosY=0; // top left position up / down max 64
+
+Bar=(Height*Fill_percent/100);PosY=Height-PosY;
+display.fillRect(PosX,PosY-Bar,Width,Bar+Height-PosY);
+  
+}
+void SignalStrengthBar( int32_t rssi) { 
+  int PosX,PosY,Height,Width,Bar;
+  // rssi -90 is just about dropout..
+  // rssi -40 is a great signal
+  Width=8;
+  Height=8;
+  PosX=120;  // position left right  max = 128
+  PosY=0; // top left position up / down max 64
+
+  if (rssi >= -40) {Bar=Height;}
+  if (rssi >= -45) {Bar=7;}
+  if (rssi <= -50){Bar=6;}
+  if (rssi <= -55){Bar=5;}
+  if (rssi <= -60){Bar=4;}
+  if (rssi <= -65){Bar=3;}
+  if (rssi <= -70){Bar=2;}
+  if (rssi <= -75){Bar=1;}
+  if (rssi <= -90){Bar=0;}
+  PosY=Height-PosY;
+  display.fillRect(PosX,PosY-Bar,Width,Bar+Height-PosY);
+ }
+
+
 void drawImageDemo() {
     // see http://blog.squix.org/2015/05/esp8266-nodemcu-how-to-create-xbm.html
     // on how to create xbm files
@@ -42,7 +103,7 @@ void drawImageDemo() {
 }
 
 extern long ThrottlePosition;
-extern bool EncoderMoved;
+extern bool Encoder_Timeout;
 
 bool LastDir;
 int LastLoco;
@@ -66,7 +127,7 @@ if (speedindex<=-1){Dir=false;}  // this set of code tries to ensure that when s
   MQTTSend("rocrail/service/client",MsgTemp);
 }
 
-extern int FunctionTimer[16];
+
 void Send_function_command(int locoindex,int fnindex, bool state){
   char MsgTemp[200];
   int cx;
@@ -80,7 +141,10 @@ void Send_function_command(int locoindex,int fnindex, bool state){
 
 void Do_Function(int locoindex,int fnindex){
   // initially only f0 is toggle but now checks if timer is not zero
-  if (FunctionTimer[fnindex]<=0) {
+                FunctionState[fnindex]=!FunctionState[fnindex];
+                Send_function_command(locoindex,fnindex,!FunctionState[fnindex]);
+  /*
+  if (FunctionTimer[fnindex]<=0) {   // toggle
                 FunctionState[fnindex]=!FunctionState[fnindex];
                 Send_function_command(locoindex,fnindex,!FunctionState[fnindex]);
                 FunctionActive=false;}
@@ -88,98 +152,121 @@ void Do_Function(int locoindex,int fnindex){
       Send_function_command(locoindex,fnindex,false);
       FunctionActive=true;
       }
+      */
 }
 
 extern void Picture();
-
+extern bool PowerON;
 void DoDisplay(int MenuLevel){
      //display.clear;
-String SpeedIndexString = String(speedindex);
-String FnIndexString= String(fnindex);
-String SpeedSelected;   
-String TopMessage = "---Select Loco---";
-String BottomMessage = "Selected:";
-String MSGText;
-BottomMessage += locoindex+1;
-BottomMessage += " of :";
-BottomMessage += (LocoNumbers);
-BottomMessage+= " selected";
-
-switch (MenuLevel){
+boolean Display3;
+     Display3=false;
+  String SpeedIndexString = String(speedindex);
+  String FnIndexString= String(fnindex);
+  String SpeedSelected;   
+  String TopMessage = "Select Loco";
+  String BottomMessage = "Selected:";
+  String MSGText;
   
- case 0:  // top level
- display.setFont(ArialMT_Plain_10);
-// only display this if we actually have a loco list!
-if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
-   display.drawString(64,1,"No Loco");
-  display.drawString(64,16,"List yet");}
-else{
-    display.drawString(64,54,BottomMessage);
-    display.setFont(ArialMT_Plain_10);
-    display.drawString(64,0,TopMessage);
+  BottomMessage += locoindex+1;
+  BottomMessage += " of ";
+  BottomMessage += (LocoNumbers);
+  BottomMessage+= " available";
+  display.setFont(ArialMT_Plain_10);
+  
+  // Wifi Signal strength bar - 
+  SignalStrengthBar(WiFi.RSSI());
+   // alternate Wifi bar and signal strength display on screen  
+   // for rssi tests
+   //MSGText="";MSGText+=WiFi.RSSI();
+   //MSGText=getQuality(); MSGText+="%";
+   //Bar(getQuality()); // draw wifi bar 
+   display.drawString(115,10,MSGText); // write wifi quality top right, under bar
+  
+  //Rocrail Power Status Indicator
+  if (PowerON) {fillRect();}else{drawRect();}
+  
+  display.setFont(ArialMT_Plain_10);
+  //Time display //There must be a better way to format this!!!
+  if(secs>=10){
+        if(mins>=10){
+                     MSGText="";MSGText+=hrs;MSGText+=":"; MSGText+=mins; MSGText+=":"; MSGText+=secs;}else{
+                     MSGText="";MSGText+=hrs;MSGText+=":0"; MSGText+=mins; MSGText+=":"; MSGText+=secs;}
+                     }else{
+        if(mins>=10){
+                     MSGText="";MSGText+=hrs;MSGText+=":"; MSGText+=mins; MSGText+=":0"; MSGText+=secs;}else{
+                     MSGText="";MSGText+=hrs;MSGText+=":0"; MSGText+=mins; MSGText+=":0"; MSGText+=secs;}
+                      }
 
-    
-    if (locoindex>=1){
-     display.setFont(ArialMT_Plain_10);
-     display.drawString(64,16,LOCO_id[locoindex-1]);
-        }
-        
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
-     display.setFont(ArialMT_Plain_16);
-     display.drawString(64,26,LOCO_id[locoindex]);
-   if (locoindex<=LocoNumbers-1){
-     display.setFont(ArialMT_Plain_10);
-     display.drawString(64,40,LOCO_id[locoindex+1]);
-   }       
-   
-}   
+  display.drawString(64,0,MSGText);  // adds time display
+
+  switch (MenuLevel){
+  
+     case 0:  // top level
+         display.setFont(ArialMT_Plain_10);
+        // only display this if we actually have a loco list!
+        if (LocoNumbers<=0){
+            display.setFont(ArialMT_Plain_16);
+            display.drawString(64,10,"No Loco");
+            display.drawString(64,20,"List yet");}
+       else{
+            display.drawString(64,54,BottomMessage);
+            display.setFont(ArialMT_Plain_10);
+            display.drawString(64,10,TopMessage);
+            if ((locoindex>=1)&& Display3 ){
+               display.setFont(ArialMT_Plain_10);
+               display.drawString(64,21,LOCO_id[locoindex-1]);
+                }
+            display.setTextAlignment(TEXT_ALIGN_CENTER);
+            display.setFont(ArialMT_Plain_16);
+            display.drawString(64,30,LOCO_id[locoindex]);
+            if ((locoindex<=LocoNumbers-2)&& Display3){
+               display.setFont(ArialMT_Plain_10);
+               display.drawString(64,44,LOCO_id[locoindex+1]);
+               }       
+           }   
   
       break;
  case 1: // selected loco, set speed
- //show loco
- if (LocoNumbers<=0){
-   display.setFont(ArialMT_Plain_16);
-   display.drawString(64,1,"No Loco");
-  display.drawString(64,16,"selected");}
-   else
-    {
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
-     display.setFont(ArialMT_Plain_16);
-     display.drawString(64,1,LOCO_id[locoindex]);
-    }
- //show speed 
- SpeedSelected="";
- 
-#ifdef Rotary
-display.drawString(25,28," Speed:");
-display.drawString(90,28,SpeedIndexString);
-#endif
-
-
-
-
+         //show loco
+        if (LocoNumbers<=0){
+             display.setFont(ArialMT_Plain_16);
+             display.drawString(64,10,"No Loco");
+             display.drawString(64,20,"selected");}
+        else{
+          display.setTextAlignment(TEXT_ALIGN_CENTER);
+          display.setFont(ArialMT_Plain_16);
+          display.drawString(64,11,LOCO_id[locoindex]);
+            }
+       //show speed 
+       SpeedSelected="";
+       display.drawString(25,30," Speed:"); display.drawString(90,30,SpeedIndexString);
+       display.setFont(ArialMT_Plain_10);
+       display.drawString(64,54,"LONG Press to STOP");  // use upper case to save 2 pixels!! 'long' drops the 'g' off the screen 
+      
     
       break;
       
 case 2: // selected loco, set fn
  //show loco
-     display.setTextAlignment(TEXT_ALIGN_CENTER);
-     display.setFont(ArialMT_Plain_16);
-     display.drawString(64,1,LOCO_id[locoindex]);
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setFont(ArialMT_Plain_16);
+   // display.drawString(64,1,LOCO_id[locoindex]);
     
  //show fn
     display.setFont(ArialMT_Plain_10);
-    display.drawString(64,20,"press for");
-    if (FunctionName[fnindex]==""){MSGText="Fn:";MSGText+=fnindex;MSGText+=" ";}
-    else {MSGText=FunctionName[fnindex];}
-    MSGText+= "  ";
+    display.drawString(64,10,"LONG Press for");
+    MSGText=FunctionName[fnindex];
     display.setFont(ArialMT_Plain_16);
-    display.drawString(64,34,MSGText);
-    if (FunctionTimer[fnindex]==0){ MSGText=" State is:"; if (FunctionState[fnindex]){MSGText+="ON";}
-                                                                                else{MSGText+="OFF";}
-           display.setFont(ArialMT_Plain_10);  display.drawString(64,54,MSGText);                }  // Function timer is zero for toggle  so show current state
-    
+    display.drawString(64,30,MSGText);
+    if (FunctionStateKnown[fnindex]){ MSGText="State is:"; 
+                                         if (FunctionState[fnindex]){MSGText+="ON";}
+                                            else{ if (FunctionTimer[fnindex]==0){ MSGText+="OFF";}
+                                                      else{MSGText+="timed out";}
+                                                 }
+                                     }
+                                    else  {MSGText="";if (FunctionTimer[fnindex]==0){ MSGText+="State is:?";}}
+    display.setFont(ArialMT_Plain_10);  display.drawString(64,54,MSGText);
       
        
     
@@ -213,30 +300,34 @@ switch (MenuLevel){
  locoindex=locoindex-1;
  break;
  case 1:  // top level
- speedindex=speedindex+1; // works better to increment with this button
- #ifdef Rotary
- if (!EncoderMoved){ speedindex=speedindex+9;}
+ #ifdef Rotary_Switch
+  if (!UpdatedRotaryMovementUsed) {speedindex=speedindex+(Loco_V_max/15);UpdatedRotaryMovementUsed=true;} // works better to increment with this button  // new
+                           else{speedindex=speedindex+5;}
+ #endif                          
+ #ifndef Rotary_Switch
+  speedindex=speedindex+5;
  #endif
- SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+ if (speedindex >= Loco_V_max){speedindex= Loco_V_max;}
+ SetLoco(locoindex,speedindex);// Rotary_Switch sets the loco in a different place
  
  break;
  case 2:
- fnindex=fnindex+1;
- if (fnindex>=16){fnindex=16;}
+   fnindex=fnindex+1;
  break;
  default:
  break;
-  
+ if (!UpdatedRotaryMovementUsed) {UpdatedRotaryMovementUsed=true;}  
 
-}
-#ifndef Rotary
-if (speedindex>=4){speedindex=4;}
-#endif
-#ifdef Rotary
-if (speedindex>=100){speedindex=100;}
-#endif
-if (locoindex <=0) {locoindex=0;}
-if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
+ }
+
+
+ if (speedindex>=100){speedindex=100;}
+ 
+ if (fnindex <= -1) {fnindex=N_Functions-1;}
+ if (fnindex>=N_Functions){fnindex=0;}
+
+ if (locoindex <= -1) {locoindex=LocoNumbers-1;}
+ if (locoindex>=LocoNumbers){locoindex=0;}
 }
 
 void ButtonUp(int MenuLevel){
@@ -247,44 +338,44 @@ switch (MenuLevel){
  locoindex=locoindex+1;
  break;
  case 1:  // level 1
- speedindex=speedindex-1;
- #ifdef Rotary
- if (!EncoderMoved){ speedindex=speedindex-9;}
- #endif
- SetLoco(locoindex,speedindex);// rotary sets the loco in a different place
+  #ifdef Rotary_Switch
+    if (!UpdatedRotaryMovementUsed) {speedindex=speedindex-(Loco_V_max/15);UpdatedRotaryMovementUsed=true;} // works to give increment with this button  // new
+                           else{speedindex=speedindex-5;} 
+  #endif
+  #ifndef Rotary_Switch
+    speedindex=speedindex-5;
+  #endif
+ if (speedindex <= -Loco_V_max){speedindex= -Loco_V_max;}
+ SetLoco(locoindex,speedindex);// Rotary_Switch sets the loco in a different place
   break;
  case 2:
- fnindex=fnindex-1;
- if (fnindex<=0){fnindex=0;}
+  fnindex=fnindex-1;
+ 
  break;
  default:
  break;
-  
-}
-#ifndef Rotary
-if (speedindex<=-4){speedindex=-4;}
-#endif
-#ifdef Rotary
-if (speedindex<=-100){speedindex=-100;}
-#endif
-if (locoindex <=0) {locoindex=0;}
-if (locoindex>=LocoNumbers){locoindex=LocoNumbers;}
+  if (!UpdatedRotaryMovementUsed) {UpdatedRotaryMovementUsed=true;} 
 }
 
+ if (speedindex<=-100){speedindex=-100;}
 
+ if (fnindex <= -1) {fnindex=N_Functions-1;}
+ if (fnindex>=N_Functions){fnindex=0;}
+ if (locoindex <= -1) {locoindex=LocoNumbers-1;}
+ if (locoindex>=LocoNumbers){locoindex=0;}
+}
+
+/*
 void ButtonRight(int MenuLevel){
   // nb Looks like you cannot change MenuLevel in a function that called with MenuLevel as a variable, presumably it sets internal variable only?
-
-
-
-  
+ 
 switch (MenuLevel){
  case 0:  // top level 
     GetLocoFunctions(locoindex);
   
-      #ifdef Rotary
-       ThrottlePosition=0; ThumbWheel.write(0);
-       // set rotary to zero  
+      #ifdef Rotary_Switch
+       ThrottlePosition=0; //ThumbWheel.write(0);
+       // set Rotary_Switch to zero  
  
       #endif
       
@@ -301,7 +392,8 @@ switch (MenuLevel){
 
 
 }
-
+*/
+/*
 
 void ButtonLeft(int MenuLevel){
  
@@ -321,11 +413,12 @@ switch (MenuLevel){
 
 
 }
-
+*/
+/*
 void ButtonInactive(int MenuLevel){
 if (FunctionActive){  
       FunctionActive=false;
-      Send_function_command(locoindex,fnindex,true);
+      Send_function_command(locoindex,fnindex,true);  // this is not actually needed, as rocrail turns off timed functions after a defined delay.
 switch (MenuLevel){
   
  case 0:  // top level
@@ -346,8 +439,8 @@ break;
 }
 }
 }
-
-
+*/
+/*
 void ButtonSelect(int MenuLevel){ 
   char MsgTemp[200];
   int cx;
@@ -362,7 +455,7 @@ void ButtonSelect(int MenuLevel){
  break;
 
  case 1:
- #ifndef Rotary
+ #ifndef Rotary_Switch
  if (speedindex==0){ 
     fnindex=2; 
     Do_Function(locoindex,fnindex);
@@ -372,9 +465,11 @@ void ButtonSelect(int MenuLevel){
    speedindex=0;
    SetLoco(locoindex,speedindex);}
 #endif
-    #ifdef Rotary
+    #ifdef Rotary_Switch
       if (speedindex==0){ Do_Function(locoindex,2); }//toot fn 2 (loco index) 
-       else{  speedindex=0;ThrottlePosition=0;LastThrottlePosition=0; ThumbWheel.write(0); SetLoco(locoindex,speedindex);}
+       else{  speedindex=0;ThrottlePosition=0;LastThrottlePosition=0; 
+       //ThumbWheel.write(0); 
+       SetLoco(locoindex,speedindex);}
 
 #endif
    
@@ -388,7 +483,7 @@ break;
   
 }
 }
-
+*/
 
 
 byte SW_all[9];
@@ -551,7 +646,7 @@ case 3:
 display.display(); 
 }
 
-extern bool buttonState5;
+extern bool SelectButtonState;
 void ButtonDown(int MenuLevel){
   Serial.print("DOWN");
 switch (MenuLevel){
@@ -560,14 +655,14 @@ switch (MenuLevel){
  switchindex=switchindex-1;
  break;
  case 1:  // top level
- if(buttonState5){ LeftIndexPos=LeftIndexPos+2;}
+ if(SelectButtonState){ LeftIndexPos=LeftIndexPos+2;}
  else  {LeftIndexPos=LeftIndexPos+15;}
  if (LeftIndexPos>=600){LeftIndexPos=600;}
   UpdateSetPositions();
   SetSwitch(switchindex,0);
  break;
  case 2:
- if(buttonState5){RightIndexPos=RightIndexPos+2;}
+ if(SelectButtonState){RightIndexPos=RightIndexPos+2;}
  else{RightIndexPos=RightIndexPos+15;}
  if (RightIndexPos>=600){RightIndexPos=600;}
   UpdateSetPositions();
@@ -592,7 +687,7 @@ switch (MenuLevel){
  switchindex=switchindex+1;
  break;
  case 1:  // level 1 (left)
- if(buttonState5){LeftIndexPos=LeftIndexPos-2;}
+ if(SelectButtonState){LeftIndexPos=LeftIndexPos-2;}
  else{LeftIndexPos=LeftIndexPos-15;}
  if (LeftIndexPos<=160){LeftIndexPos=160;}
  UpdateSetPositions();
@@ -600,7 +695,7 @@ switch (MenuLevel){
 
  break;
  case 2:
- if(buttonState5){RightIndexPos=RightIndexPos-2;}
+ if(SelectButtonState){RightIndexPos=RightIndexPos-2;}
   else {RightIndexPos=RightIndexPos-15;}
  if (RightIndexPos<=160){RightIndexPos=160;}
  UpdateSetPositions();

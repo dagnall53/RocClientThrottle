@@ -1,11 +1,37 @@
-#define ver 007
+#define ver 25
 #include "Secrets.h"
-#define Rotary  // comment this out if not using the additional rotary switch 
+#define Rotary_Switch  // comment this out if not using the additional Rotary_Switch switch 
+#ifdef Rotary_Switch
+ #include <Rotary.h>   ///https://github.com/brianlow/Rotary
+ Rotary r= Rotary(EncoderPinA, EncoderPinB);  //D3 D4
+ long ThrottlePosition;
+ long LastThrottlePosition;
+ bool Encoder_Timeout;
+ bool UpdatedRotaryMovementUsed;
+ long Encoder_TimeoutAt;
+#endif
 
-#include <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306
+// new stuff for buttons
+#include <JC_Button.h>          // https://github.com/JChristensen/JC_Button
+const unsigned long
+    LONG_PRESS(1000);
+    
+bool     Fourway_SW_Menu_Action_Enabled;   // to assist with  the menu level change in four way switchto avoid immediately sending a function action 
+bool     Menu_Action_Enabled;   // to assist with  the menu level change to avoid immediately sending a function action 
+bool PowerON;                   // to assist with making the menu work with vry lng press for power on 
+Button UpButtonButton(UpButton);       // define the buttons for the JC button functionality
+Button DownButtonButton(DownButton);       // Button(pin, dbTime, puEnable, invert)
+Button RightButtonButton(RightButton);       // Button(pin, 25ms default, enabled pullup default, default true for invert.
+Button SelectButtonButton(SelectButton);       // 
+Button LeftButtonButton(LeftButton); 
+
+#include <SSD1306.h> // alias for `#include "SSD1306Wire.h"` //https://github.com/ThingPulse/esp8266-oled-ssd1306
+// connect to display using pins D1, D2 for I2C on address 0x3c with esp32, 5,4 with esp32?
+ SSD1306  display(0x3c, OLED_SDA, OLED_SCL);
+// #include <PubSubClient.h> is included in MQTT.cpp.. Very important to read the notes there...
 
 #include "Terrier.h"
-#include "MQTT.h" //new place for mqtt stuff
+
 #include <ArduinoOTA.h>
 #ifdef _Use_Wifi_Manager
        #include <WiFiManager.h>
@@ -13,70 +39,54 @@
        String wifiSSID = SSID_RR;
        String wifiPassword = PASS_RR; 
 #endif
-String NameOfThisThrottle=ThrottleName;
+int disconnected;
+       int BrokerAddr; 
+String NameOfThisThrottle=ThrottleNameDefault;
+#ifdef ESP32
+#include <WiFi.h>
+#else
 #include <ESP8266WiFi.h>
+#endif
 uint8_t wifiaddr;
 uint8_t ip0;
 uint8_t ip1;
 uint8_t    subIPH;
 uint8_t    subIPL;
-//uint16_t HandControlID;
-
-// put these changes in PubSubClient.h at or around line 17 or so..(also commented at MQTT.cpp line 9)
-//        #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
-//(And, if using RSMB and not Mosquitto..)
-//        #define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
-
-/* Encoder by Pul Stoffregen 
- * http://www.pjrc.com/teensy/td_libs_Encoder.html
- */
-#ifdef Rotary
- #include <Encoder.h>
- const int EncoderPinA = D9;     // the number of the A pushbutton pin (common is connected to ground
- const int EncoderPinB = D4;     // the number of the B pushbutton pin (common is connected to ground
- Encoder ThumbWheel(EncoderPinA, EncoderPinB);  //D3 D4
- long ThrottlePosition;
- long LastThrottlePosition;
- long ThrottleClicks;
- bool EncoderMoved;
- bool FunctionUpdated;
- long EncoderMovedAt;
-#endif
- long StartupAt;
- bool LcpropsSent;
- 
-
-//LOCO throttle settings from mqtt
-extern int LocoNumbers; //set in parse to actual number of locos in lc list
-
-extern String LOCO_id[MAXLOCOS];
-extern String SW_id[MAXLOCOS];
-extern int SW_bus[MAXLOCOS];
-extern int SW_addr[MAXLOCOS];
-
-
-
 IPAddress ipBroad;
 IPAddress mosquitto;
 int connects;
+bool  WIFI_SETUP;
 
-// connect to display using pins D1, D2 for I2C on address 0x3c
-SSD1306Wire  display(0x3c, D1, D2);
- #include "Menu.h" //place for menu and display stuff
+uint32_t LoopTimer;
+extern int hrs;
+extern int mins;
+extern int secs;
+extern int clock_divider;
+extern bool Clock_Freeze;
+uint32_t LastSynchTime;
+uint32_t LastSecTime;
+uint32_t TIME;
+ long StartupAt;
+ bool LcpropsSent;
 
- 
+#include "MQTT.h" //new place for mqtt stuff (defines maxlocos
+ //LOCO throttle settings from mqtt
+ extern int LocoNumbers; //set in parse to actual number of locos in lc list
+ extern String LOCO_id[MAXLOCOS+1];
+ extern String SW_id[MAXLOCOS+1];
+ extern int SW_bus[MAXLOCOS+1];
+ extern int SW_addr[MAXLOCOS+1];
+
+#include "Menu.h" //place for menu and display stuff, uses loco_id
+
 int y;
-const int buttonPin3 = D3;     // the number of the right pushbutton pin on wemos 18650 oled board
-const int buttonPin5 = D5;     // the number of the select pushbutton pin
-const int buttonPin6 = D6;     // the number of the up pushbutton pin
-const int buttonPin7 = D7;     // the number of the left pushbutton pin
-const int buttonPin8 = D8;    // left NOT used yet 
-bool buttonState3 = 0;         // variable for reading the pushbutton status
-bool buttonState4 = 0;         // variable for reading the pushbutton status
-bool buttonState5 = 0;         // variable for reading the pushbutton status
-bool buttonState6 = 0;         // variable for reading the pushbutton status
-bool buttonState7 = 0;         // variable for reading the pushbutton status
-bool buttonState8 = 0;         // variable for reading the pushbutton status
+bool EncoderA = 0;
+bool EncoderB = 0;
+bool RightButtonState = 0;         // variable for reading the pushbutton status
+bool SelectButtonState = 0;         // variable for reading the pushbutton status
+bool UpButtonState = 0;         // variable for reading the pushbutton status
+bool DownButtonState = 0;         // variable for reading the pushbutton status
+bool LeftButtonState = 0;         // variable for reading the pushbutton status
 bool buttonpressed;  
 uint32_t ButtonPressTimer;
 // display and selection stuff
@@ -85,6 +95,7 @@ int switchindex;
 int RightIndexPos;
 int LeftIndexPos;
 int locoindex;
+int CurrentLocoIndex;
 int fnindex;
 int speedindex;
 bool directionindex;
@@ -93,88 +104,123 @@ bool AllDataRead;
 const int MaxAttribSize = 35;
 char FoundAttrib[MaxAttribSize];// FoundAttrib= will be the attributes found by the attrib and attribcolon  functions;
 char DebugMessage[128];
+#include "NVSettingInterface.h"  // location for te EEPROM write and interface stuff
+// These OLED display functions allow calling from anywhere, including my libraries.
+void Picture(){
+  display.clear(); 
+  display.drawXbm(1,1, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
+ //  display.display();
+}
 
-void OLED_Display(char* L1,char* L2,char* L3){
-  display.clear();
+
+void OLED_5_line_display_p(String L1,String L2,String L3,String L4,String L5){
+   display.clear();
+  Picture();
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(64, 0, L1);
+  display.drawString(64, 10, L2);
+  display.drawString(64, 22, L3);
+  display.drawString(64, 34, L4);
+  display.drawString(64, 46, L5);
+  display.display();
+}
+void OLED_5_line_display(String L1,String L2,String L3,String L4,String L5){
+   display.clear();
  // Picture();
-  display.drawString(64, 10, L1);
-  display.drawString(64, 24, L2);
-  display.drawString(64, 38, L3);
+  display.setFont(ArialMT_Plain_10);
+ display.drawString(64, 0, L1);
+  display.drawString(64, 10, L2);
+  display.drawString(64, 22, L3);
+  display.drawString(64, 34, L4);
+  display.drawString(64, 46, L5);
   display.display();
 }
 
 void ConnectionPrint() {
-  
  char MsgTemp[127];
  int cx;
-  Serial.println("");
-  Serial.println(F("---------------------------Connected-----------------------"));
-  Serial.print (F(" Connected to SSID:"));
+  Serial.println(F("-----------------------------------------------------------"));
+  Serial.print (F("---------- Connected to SSID:"));
   Serial.print(WiFi.SSID());
   Serial.print(F("  IP:"));
   Serial.println(WiFi.localIP());
- 
- 
- //cx= sprintf (MsgTemp, " IP: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
- //OLED_Display("Connected",MsgTemp,"");
- //delay(500); 
+ }
 
- 
-}
-
-
-void Status(){
-delay(10);
-  Serial.println();Serial.println();
+void Banner(){
+  String MSGText1;String MSGText2;
+  display.init();
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.setFont(ArialMT_Plain_10);
+  MSGText1="Looking for <";MSGText1+=wifiSSID;MSGText1+="> ";
+  MSGText2="code <Ver:";MSGText2+=ver;MSGText2+="> ";
+  OLED_5_line_display_p(""," ",MSGText1,MSGText2,"");
   Serial.println(F("-----------------------------------------------------------"));
-  Serial.println(F("             ESP8266 Rocrail Client 'Throttle'    ")); 
-  Serial.print(F("-------------------- limit "));
+  Serial.println(F("            This is Rocrail Client Throttle ")); 
+  Serial.print  (F("            Named      \""));Serial.print(NameOfThisThrottle);Serial.println("\" ");
+    Serial.print(F("-------------------- limit "));
   Serial.print(MAXLOCOS);
-  Serial.println(F( " locos ------------------------"));
-  Serial.print(F(  "                    revision:"));
+  Serial.println(F( " locos -----------------------"));
+    Serial.print(F(  "                    revision:"));
   Serial.println(ver);
   Serial.println(F("-----------------------------------------------------------"));
-
-  WiFi.setOutputPower(20); //  0 sets transmit power to 0dbm to lower power consumption, but reduces usable range.. try 30 for extra range
-
-#ifdef _Use_Wifi_Manager
-   WiFiManager wifiManager;  // this  stores ssid and password invisibly  !!
-  //reset settings - for testing
-  //wifiManager.resetSettings();
-  wifiManager.autoConnect("ROCNODE ESP AP");  //ap name (with no password) to be used if last ssid password not found
-#else    
-
-  WiFi.mode(WIFI_STA);  //Alternate "normal" connection to wifi
-  WiFi.setOutputPower(30);
-  WiFi.begin(wifiSSID.c_str(), wifiPassword.c_str());
-  Serial.print(F("Trying to connect to {"));  Serial.print(wifiSSID.c_str());Serial.print(F("} "));
-  while (WiFi.status() != WL_CONNECTED) {delay(500);Serial.print(".");}
- 
-#endif 
-
-//if you get here you have connected to the WiFi
-  Serial.println();Serial.println(F("--Connected--"));
- 
-  ipBroad = WiFi.localIP();
-  subIPH = ipBroad[2];
-  subIPL = ipBroad[3];
-  wifiaddr = ipBroad[3];
-  ConnectionPrint();
-  ipBroad[3] = 255; //Set broadcast to local broadcast ip e.g. 192.168.0.255 // used in udp version of this program
- 
- //   ++++++++++ MQTT setup stuff   +++++++++++++++++++++
-  mosquitto[0] = ipBroad[0]; mosquitto[1] = ipBroad[1]; mosquitto[2] = ipBroad[2];
-  mosquitto[3] = BrokerAddr; //18;                //forced  mosquitto address, where the broker is! originally saved as RN[14], 
-  Serial.print(F(" Mosquitto will first try to connect to:"));
-  Serial.println(mosquitto);
-  //char Message[80];
-  //sprintf(Message, "SUBIP:%i", mosquitto[3]);
-  //OLED_Display("MQTT Setup",Message,"");
-  //delay(100);
-  MQTT_Setup();  
-
-    Serial.println(F("-----------MQTT NOW setup ----------------")); 
+  delay(100);
 }
+
+
+
+void ConnectToWifi(String WiSSID, String Password, int Broker){
+//Void Status(){
+ String MSGText;String MSGText1;String MSGText2;
+ int counter;
+  delay(100);
+  #ifdef _Use_Wifi_Manager
+     WiFiManager wifiManager;  // this  stores ssid and password invisibly  !!
+    //reset settings - for testing
+    //wifiManager.resetSettings();
+    wifiManager.autoConnect("ROCNODE ESP AP");  //ap name (with no password) to be used if last ssid password not found
+  #else    
+
+    WiFi.mode(WIFI_STA);  //Alternate "normal" connection to wifi
+    #ifdef ESP32
+      // nothing needed here, the ESP32 doe not have the 'set output power' function
+    #else
+      WiFi.setOutputPower(30);//  0 sets transmit power to 0dbm to lower power consumption, but reduces usable range.. try 30 for extra range
+    #endif
+   MSGText1="Trying SSID<";  MSGText1+=  WiSSID;  MSGText1+="> ";
+   OLED_5_line_display_p("",""," ",MSGText1,"");
+   MSGText1="- Trying to connect to SSID<";  MSGText1+=  WiSSID;  MSGText1+="> "; // longer message for serial interface...
+   MSGText2+=" password <";  MSGText2+=  Password;  MSGText2+="> "; 
+   counter=0;
+   Serial.println(F("-----------------------------------------------------------"));
+   Serial.print (MSGText1);Serial.print(MSGText2);Serial.print(" BrokerAddr:");Serial.println(Broker);
+   WiFi.begin(WiSSID.c_str(), Password.c_str());
+   delay(100);
+   while (WiFi.status() != WL_CONNECTED) {delay(100);Serial.print("."); counter++; if (counter>=30){counter=0;Serial.println("");} }
+ 
+ #endif // not using wifi manager
+
+        //if you get here you should have connected to the WiFi
+        //  Serial.println();Serial.println(F("--Connected--"));
+ 
+   ipBroad = WiFi.localIP();
+   subIPH = ipBroad[2];
+   subIPL = ipBroad[3];
+   wifiaddr = ipBroad[3];
+   ConnectionPrint();  // display connection screen
+  //   ++++++++++ MQTT setup stuff   +++++++++++++++++++++
+   mosquitto[0] = ipBroad[0]; mosquitto[1] = ipBroad[1]; mosquitto[2] = ipBroad[2];
+   mosquitto[3] = Broker; // mosquitto address 
+   Serial.print(F("--------Mosquitto will first try to connect to:"));
+   Serial.println(mosquitto);
+   MQTT_ReConnect();  
+   //if you get here you should have connected to the MQTT broker but MQTT_ReConnect() in MQTT includes code to search addr 3 to 50 if its not at the expected address
+    Serial.println(F("----------------MQTT NOW setup ----------------")); 
+    WIFI_SETUP=true;
+  _SetupOTA(NameOfThisThrottle); // now we  have set the ota update with nickname ThrottleName 
+                           //Note In Arduino Ports: You will also see the IP address so you can select which throttle of many with the same name to update OTA
+  MSGText=" IP:";MSGText+=ipBroad[0];MSGText+=":";MSGText+=ipBroad[1];MSGText+=":";MSGText+=ipBroad[2];MSGText+=":";MSGText+=wifiaddr;
+  OLED_5_line_display_p("",""," ","WiFi Connected",MSGText);delay(1000);
+  }
 
 
 
@@ -186,11 +232,7 @@ void PrintLocoSettings(){
       Serial.println("");}
 }
 
-void Picture(){
-  display.clear(); 
-  display.drawXbm(1,1, Terrier_Logo_width, Terrier_Logo_height, Terrier_Logo); 
- //  display.display();
-}
+
 void _SetupOTA(String StuffToAdd){
   String Name;
   // ota stuff  Port defaults to 8266
@@ -201,8 +243,8 @@ void _SetupOTA(String StuffToAdd){
  Name="RocMouse<";
  Name=Name+StuffToAdd;
  Name=Name+">";
- Serial.printf("--- Setting OTA Hostname <%s> -------------\n",Name.c_str());
- Serial.printf("------------------------------------------------------\n");
+ Serial.printf("------ Setting OTA Hostname <%s>\n",Name.c_str()); 
+ Serial.println(F("-----------------------------------------------------------"));
  ArduinoOTA.setHostname(Name.c_str());
   // No authentication by default
   //ArduinoOTA.setPassword((const char *)"123");
@@ -230,73 +272,88 @@ void _SetupOTA(String StuffToAdd){
 }
 
 void setup() {
-  // init serial port
+  bool UsedDefaults;
+  String msg; // local variable for any string message builds
+  // init serial port 
+
   Serial.begin(115200);
-
+  delay(500); // allow time for serial to set up
+  Serial.println("-----Serial Port Running------"); 
   // set the builtin LED pin to work as an output
- pinMode(LED_BUILTIN, OUTPUT);
-  
- pinMode(buttonPin3, INPUT_PULLUP);
- pinMode(buttonPin5, INPUT_PULLUP);
- pinMode(buttonPin6, INPUT_PULLUP);
- pinMode(buttonPin7, INPUT_PULLUP);
- pinMode(buttonPin8, INPUT_PULLUP);
- 
-#ifdef Rotary
-pinMode(EncoderPinA, INPUT_PULLUP);   // rotary encoder pins
-pinMode(EncoderPinB, INPUT_PULLUP);
-#endif
- 
+  pinMode(On_Board_LED, OUTPUT);
+  WIFI_SETUP=false;
+  EEPROM.begin(EEPROM_Size); //Initialize EEPROM
+  UsedDefaults=false;
+  // TestFillEEPROM(72); // used for test only to check read eeprom etc functions
+  BrokerAddr=BrokerAddrDefault;
+  wifiSSID=read_String(ssidEEPROMLocation);
+  wifiPassword=read_String(passwordEEPROMLocation);
+  BrokerAddr=EEPROM.read(BrokerEEPROMLocation);
+  NameOfThisThrottle=read_String(ThrottleNameEEPROMLocation);
+  Serial.print(" Broker addr:");Serial.println(BrokerAddr);
+  if ((wifiSSID=="")||(wifiSSID.length()>=90)){wifiSSID=SSID_RR;UsedDefaults=true;Serial.println("Using Default SSID");}         // if empty, or if bigger than 90 use the secrets default
+  if ((wifiPassword=="")||(wifiPassword.length()>=90)){wifiPassword=PASS_RR;UsedDefaults=true;Serial.println("Using Default Password");} // if empty, or if bigger than 90 use the secrets default
+  if ((NameOfThisThrottle=="")||(NameOfThisThrottle.length()>=90)){NameOfThisThrottle=ThrottleNameDefault;UsedDefaults=true;Serial.println("Using Default Throttlename");} // if empty, or if bigger than 90 use the secrets default
+  if ((BrokerAddr==0)||(BrokerAddr==255)){BrokerAddr=BrokerAddrDefault;UsedDefaults=true;Serial.println("Using Default Broker address");}   // zero and 255 are not  valid Ip for the broker, use default instead
+  if (UsedDefaults){WriteWiFiSettings();}
+  Banner();
+  CheckForSerialInput(); // do this before you set any pin definitions..
+
+  UpButtonButton.begin(); // start the JC button functions
+  DownButtonButton.begin(); // start the JC button functions
+  RightButtonButton.begin(); // start the JC button functions
+  SelectButtonButton.begin(); // start the JC button functions
+  LeftButtonButton.begin(); // start the JC button functions
+
   // init the display
-  display.init();
-  display.setTextAlignment(TEXT_ALIGN_CENTER);
-  display.setFont(ArialMT_Plain_10);
- 
-  Picture();
-  display.drawString(64, 32, "Looking for WiFi");display.display();
-  delay(1000);
 
- connects=0;
- Status();
- _SetupOTA(ThrottleName); // now we  have set the ota update nickname ThrottleName
- //_SetupOTA("SwitchTool"); // now we  have set the nickname 
- Picture();
-  display.drawString(64, 32, "WiFi Connected"); display.display();delay(1000);
-  char MsgTemp[127];
-  int cx;
-  cx= sprintf (MsgTemp, " IP: %d:%d:%d:%d ", ipBroad[0],ipBroad[1],ipBroad[2],wifiaddr);
- Picture();
-  display.drawString(64, 32, MsgTemp);
-  display.display();  display.setFont(ArialMT_Plain_16);
-  delay(1000); 
-  Picture();display.display();
-  delay(1000);  
-// initial defaults
-#ifdef Rotary
-ThumbWheel.write(0);
-ThrottlePosition  = 0;
-LastThrottlePosition=0;
-ThrottleClicks=-999;
-FunctionUpdated=true;
-#endif
-buttonpressed=false;
-MenuLevel=0;
-switchindex=1;
-locoindex=0;
-fnindex=0;
-RightIndexPos=3;
-LeftIndexPos=0;
-directionindex=true;
-LocoNumbers=0; 
-AllDataRead=false; 
-for (int i=0; i<=(MAXLOCOS) ;i++) {
-LOCO_id[i]="~blank~";
-}
-StartupAt=millis();
-LcpropsSent=false; 
+  connects=0;
+  ConnectToWifi(wifiSSID,wifiPassword,BrokerAddr);
+  //Status();  // where we try to log in to WiFi
 
-GetLocoList();
+  #ifdef Rotary_Switch
+      pinMode(EncoderPinA, INPUT_PULLUP);   // Rotary_Switch encoder pins are not using JC button library
+      pinMode(EncoderPinB, INPUT_PULLUP); 
+      //ThumbWheel.write(0);
+      UpdatedRotaryMovementUsed=true;      
+      ThrottlePosition  = 0;
+      LastThrottlePosition=0;
+  #endif 
+
+      
+  
+  hrs=0;
+  mins=0;
+  secs=0;
+  clock_divider=1;
+  Clock_Freeze=false;
+  buttonpressed=false;
+  MenuLevel=0;
+  switchindex=1;
+  locoindex=0;
+  CurrentLocoIndex=-1; // set to somethging we cannot have to allow the consistent triggering of the get loco data function in menu
+  Menu_Action_Enabled=false;
+  Fourway_SW_Menu_Action_Enabled=false;
+  PowerON=false;
+  fnindex=0;
+  RightIndexPos=3;
+  LeftIndexPos=0;
+  directionindex=true;
+  LocoNumbers=0; 
+  AllDataRead=false; 
+  for (int i=0; i<=(MAXLOCOS) ;i++) {
+    LOCO_id[i]="~blank~";
+    }
+  
+  StartupAt=millis();
+  LastSynchTime=StartupAt;
+  LastSecTime=StartupAt;
+  clock_divider=1;
+  LcpropsSent=false; 
+
+  GetLocoList();
 }
+
 void GetLocoList(){
   ParseIndex=0;
   AllDataRead=false;
@@ -309,103 +366,183 @@ void GetLocoFunctions(int index){
   int cx;
   cx= sprintf ( MsgTemp,"<model cmd=\"lcprops\" val=\"%s\"/>",LOCO_id[index].c_str());
   //Serial.println(MsgTemp);  //https://wiki.rocrail.net/doku.php?id=cs-protocol-en
-  
+   for (int i=0; i<=(N_Functions) ;i++) {
+    String msg;
+    msg="F";msg=msg+i;
+    FunctionName[i]=msg;
+    FunctionState[i]=false;
+    FunctionStateKnown[i]=false; 
+    FunctionTimer[i]=0;
+    } 
   MQTTSend("rocrail/service/client",MsgTemp);
 
 }
 
  void MQTT_DO(void){
-    // MQTT stuff, & check we are connected.. 
-  if (!MQTT_Connected()) {reconnect();}           // was if (!client.connected()) {
-      
-  MQTT_Loop(); // for client.loop(); //gets wifi messages etc..
+    // MQTT stuff, & check MQTT is connected.. WiFi conection test is separate!
+  
+  if (!MQTT_Connected()) {MQTT_ReConnect(); delay(100);}           // was if (!client.connected()) 
+      MQTT_Loop(); // for client.loop(); //gets wifi messages etc..
  }
- 
-void loop() {
-buttonState3 = digitalRead(buttonPin3);
-buttonState5 = digitalRead(buttonPin5);
-buttonState6 = digitalRead(buttonPin6);
-buttonState7 = digitalRead(buttonPin7);
-buttonState8 = digitalRead(buttonPin8); //new 
-//Serial.print(" Buttons 3<");Serial.print(buttonState3);Serial.print("  5<");Serial.print(buttonState5);Serial.print(">  6<");Serial.print(buttonState6);Serial.print(">  7<");Serial.print(buttonState7);Serial.println(">");
- 
-#ifdef Rotary
-  long ThrottlePos;
-  ThrottlePos = ThumbWheel.read();
-  if (ThrottlePos != ThrottleClicks ) {
-    ThrottleClicks = ThrottlePos;
-    ThumbWheel.write(ThrottleClicks);
-    ThrottlePosition=int(ThrottleClicks/4);// up in steps of 1?
-   //Serial.print("Throttleclicks  = ");Serial.print(ThrottleClicks); // un comment for debug
-   //Serial.print (" throttlepos:"); Serial.print(ThrottlePosition);   // un comment for debug
-   //Serial.print (" lastthrottlepos:"); Serial.println(LastThrottlePosition);   // un comment for debug
-   
-if(!EncoderMoved){    EncoderMoved=true; EncoderMovedAt=millis();
-     if ((ThrottlePosition-LastThrottlePosition)>=1){Serial.print("<");
-          FunctionUpdated=false;ButtonUp(MenuLevel);LastThrottlePosition=ThrottlePosition;}
-     if ((ThrottlePosition-LastThrottlePosition)<=-1){Serial.print(">");
-          FunctionUpdated=false;ButtonDown(MenuLevel);LastThrottlePosition=ThrottlePosition;}
-   // if (abs(ThrottlePosition-LastThrottlePosition)>=1){FunctionUpdated=false;LastThrottlePosition=ThrottlePosition;}
-}
-             }
- //Serial.print("AFTER Rotaty Buttons 3<");Serial.print(buttonState3);Serial.print("  5<");Serial.print(buttonState5);Serial.print(">  6<");Serial.print(buttonState6);Serial.print(">  7<");Serial.print(buttonState7);Serial.println(">");
 
-if ((millis()-EncoderMovedAt)>=50){EncoderMoved=false;} // sets repetition rate for encoder
- //   if (!FunctionUpdated){SetLoco(locoindex,ThrottlePosition); FunctionUpdated=true;}
-#endif 
+
+
+void Do_RotarySW(){
+  #ifdef Rotary_Switch
+    long ThrottlePos;
+    unsigned char result=r.process();
+     if (result == DIR_NONE) {
+    // do nothing
+                             }
+    else if (result == DIR_CW) {
+       if(!Encoder_Timeout){ Encoder_Timeout=true; Encoder_TimeoutAt=millis();ThrottlePos=ThrottlePos+1;
+       Serial.print("<"); UpdatedRotaryMovementUsed=false;ButtonUp(MenuLevel);LastThrottlePosition=ThrottlePosition;
+                               }
+                                }
+  else if (result == DIR_CCW) {
+       if(!Encoder_Timeout){ Encoder_Timeout=true; Encoder_TimeoutAt=millis();ThrottlePos=ThrottlePos-1;
+       Serial.print(">"); UpdatedRotaryMovementUsed=false;ButtonDown(MenuLevel);LastThrottlePosition=ThrottlePosition;
+       
+                           }
+  }
+  #endif
+}
+
+void Fourwayswitch(){
+if (UpButtonButton.wasPressed()){
+     if (Menu_Action_Enabled){ Menu_Action_Enabled=false;
+       Serial.print("U"); ButtonUp(MenuLevel);
+                               }}
+      
+if (DownButtonButton.wasPressed()){
+    if (Menu_Action_Enabled){Menu_Action_Enabled=false;
+       Serial.print("D"); ButtonDown(MenuLevel);
+    } }
+    
+if ((MenuLevel==0)&& RightButtonButton.wasPressed()) {// change from loco select to speed menu
+        if (Fourway_SW_Menu_Action_Enabled){if (CurrentLocoIndex != locoindex){GetLocoFunctions(locoindex); CurrentLocoIndex=locoindex ;} MenuLevel=1;Fourway_SW_Menu_Action_Enabled=false;}} 
+
+if ((MenuLevel==1) && RightButtonButton.wasPressed()) { // change from speed to fn menu
+        if (Fourway_SW_Menu_Action_Enabled){MenuLevel=2; Fourway_SW_Menu_Action_Enabled=false;}} // disable function send for the First "button released" that will be seen on entering Function setting
+    
+if ((MenuLevel==2) && RightButtonButton.wasPressed()) { // change back to select loco menu
+        if (Fourway_SW_Menu_Action_Enabled){MenuLevel=0; Fourway_SW_Menu_Action_Enabled=false;}} 
+        
+if (RightButtonButton.wasReleased()){Fourway_SW_Menu_Action_Enabled=true;} // resets action enable if button not pressed at all -- Essential on startup to ensure a single press can trigger the action to go to menulevel 1        
+   
+}
+
+
+void ClockUpdate(){
+ if(!Clock_Freeze){  // Rocrail TIME is time since epoch start Seconds since Jan 01 1970. (UTC)
+  if (((LoopTimer-LastSynchTime)*clock_divider) >=1000){secs=secs+1;LastSynchTime=LoopTimer;}
+  
+  if (secs >= 59.5){secs=0; mins=mins+1;LastSynchTime=LoopTimer;  // Serial.print("%"); // do stuff here for tests every second..for debug
+          if (mins>=60){hrs=hrs+1;mins=0;}
+             if (hrs>=25){hrs=1;}} // 
+  }else{                } //
+ 
+}  
+
+
+boolean WiFiReturns() {  //https://github.com/esp8266/Arduino/issues/4161#issuecomment-378086456
+if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) return 0;
+  switch (WiFi.status()) {
+    case WL_NO_SHIELD: return 0;
+    case WL_IDLE_STATUS: return 0;
+    case WL_NO_SSID_AVAIL: return 0;
+    case WL_SCAN_COMPLETED: return 1;
+    case WL_CONNECTED: return 1;
+    case WL_CONNECT_FAILED: return 0;
+    case WL_CONNECTION_LOST: return 0;
+    case WL_DISCONNECTED: return 0;
+    default: return 0;
+  }
+}
+
+void loop() {
+    // turn on the LED
+  digitalWrite(On_Board_LED, LOW);
+   if (!WiFiReturns()) { Serial.println("Lost Connection Trying Reconnect");
+    WiFi.reconnect(); delay(200);digitalWrite(On_Board_LED, HIGH);delay(200); //Connection OFF - conexión OFF
+  } else { //conexión ON - Connection ON
+    
+  
+   //while (WiFi.status() != WL_CONNECTED) {Serial.println("Lost Connection Trying Reconnect");wifi_connect();delay(500); }
+  LoopTimer = millis(); // idea is to use LoopTimer instead of millis to ensure synchronous behaviour in loop
+  ClockUpdate();
+   
+  recvWithEndMarker();
+  showNewData();
+
+  UpButtonButton.read(); // start the JC button functions
+  DownButtonButton.read(); // start the JC button functions
+  RightButtonButton.read(); // start the JC button functions
+  SelectButtonButton.read(); // start the JC button functions
+  LeftButtonButton.read(); // start the JC button functions
+
+  #ifdef Rotary_Switch
+   Do_RotarySW();
+    if ((millis()-Encoder_TimeoutAt)>=50){Encoder_Timeout=false;} // sets max click repetition rate for encoder
+  #endif 
  
   display.clear();  
-  MQTT_DO();
+  MQTT_DO();   
   
   DoDisplay(MenuLevel);
 
 
   // turn off the LED
-  digitalWrite(LED_BUILTIN, HIGH);
+  digitalWrite(On_Board_LED, HIGH);
   delay(1);// essentially this is the main loop delay
 
+// completely new Button and rotary switch menu
 
-//Serial.print(" Buttons 3<");Serial.print(buttonState3);Serial.print("  4<");Serial.print(buttonState4);Serial.print("  5<");Serial.print(buttonState5);Serial.print(">  6<");Serial.print(buttonState6);Serial.print(">  7<");Serial.print(buttonState7);Serial.println(">");
-  // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
-  if (!buttonpressed&&!buttonState3) {
-    buttonpressed=true;ButtonPressTimer=millis();
-   ;ButtonRight(MenuLevel);
-          MenuLevel=MenuLevel+1; // nb cannot change MenuLevel in a function that called with menulevel as a variable,
-          if (LocoNumbers>=2){if (MenuLevel>= 3){MenuLevel=0;}}
-           else {if (MenuLevel>= 3){MenuLevel=1;}
-                }
-           }
-  if (!buttonpressed&&!buttonState5) {
-    buttonpressed=true;ButtonPressTimer=millis();
-    ButtonSelect(MenuLevel);     
-      } 
-  if (!buttonpressed&&!buttonState6) {
-    buttonpressed=true;ButtonPressTimer=millis();
-    ButtonUp(MenuLevel);
-    } 
-  if (!buttonpressed&&!buttonState7) {
-    buttonpressed=true;ButtonPressTimer=millis();
-    ButtonDown(MenuLevel);
-    } 
-   if (!buttonpressed){
-    ButtonInactive(MenuLevel); 
-   }
-/*  TO Be debugged  000000000000000000if (!buttonpressed&&!buttonState8) {
-    buttonpressed=true;ButtonPressTimer=millis();
-    ButtonLeft(MenuLevel);
-    MenuLevel=MenuLevel-1; // nb cannot change MenuLevel in a function that called with menulevel as a variable,
-           if (MenuLevel<=0){MenuLevel=3;}
-    } 
-  */  
-#ifdef Rotary
-if (millis()-ButtonPressTimer>=600) {buttonpressed=false;}// sets repetition rate for push buttons
-#endif
-#ifndef Rotary
-if (millis()-ButtonPressTimer>=200) {buttonpressed=false;}// sets faster repetition rate if no rotary sw present push buttons
-#endif 
+
+  Fourwayswitch(); // up and down same as rotary rotates...
+
+//Jans Menu idea with just rotary switch
+
+
+  if ((MenuLevel==0) && SelectButtonButton.pressedFor(LONG_PRESS)) {
+        if (Menu_Action_Enabled){
+        MQTTSend("rocrail/service/client","<sys cmd=\"stop\"/>");
+        PowerON=false;
+        drawRect();
+        Menu_Action_Enabled=false;}  }
+
+  if ((MenuLevel==0) && SelectButtonButton.pressedFor((LONG_PRESS*2))) {// VERY LONG Press
+        if (!PowerON){ //Serial.println("Very long press"); ///use PowerON bool to make this send once only
+        MQTTSend("rocrail/service/client","<sys cmd=\"go\"/>");
+        fillRect();
+        PowerON=true;}  
+        }
+    
+  if ((MenuLevel==0)&& SelectButtonButton.wasReleased() && !SelectButtonButton.pressedFor(LONG_PRESS)) {// change from loco select to speed menu
+        if (Menu_Action_Enabled){if (CurrentLocoIndex != locoindex){GetLocoFunctions(locoindex); CurrentLocoIndex=locoindex ;} MenuLevel=1;Menu_Action_Enabled=false;}} 
+
+  if ((MenuLevel==1) && SelectButtonButton.pressedFor(LONG_PRESS)) { // zero speed on long press 
+        if (Menu_Action_Enabled){speedindex=0;SetLoco(locoindex,speedindex);Menu_Action_Enabled=false;}} // speed = 0 
+
+  if ((MenuLevel==1) && SelectButtonButton.wasReleased()&& !SelectButtonButton.pressedFor(LONG_PRESS)) { // change from speed to fn menu
+        if (Menu_Action_Enabled){MenuLevel=2; Menu_Action_Enabled=false;}} // disable function send for the First "button released" that will be seen on entering Function setting
+    
+  if ((MenuLevel==2) && SelectButtonButton.pressedFor(LONG_PRESS)) { //Do fn action on long press
+        if (Menu_Action_Enabled){Do_Function(locoindex,fnindex);Menu_Action_Enabled=false;}}
+
+  if ((MenuLevel==2) && SelectButtonButton.wasReleased() && !SelectButtonButton.pressedFor(LONG_PRESS)) { // change back to select loco menu
+        if (Menu_Action_Enabled){MenuLevel=0; Menu_Action_Enabled=false;}} 
+
+  if (SelectButtonButton.wasReleased()){Menu_Action_Enabled=true;} // after any level change, wait for button release before allowing other actions
+  if (SelectButtonButton.releasedFor(LONG_PRESS)){Menu_Action_Enabled=true;} // resets action enable if button not pressed at all -- Essential on startup to ensure a single press can trigger the action to go to menulevel 1        
+           
+  
   ArduinoOTA.handle();
 
-  // turn on the LED
-  //digitalWrite(LED_BUILTIN, LOW);
- // delay(1);
+  // turn off the LED
+  digitalWrite(On_Board_LED, HIGH);
+
+  }// only do if connected to wifi
 }
+
+
