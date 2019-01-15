@@ -1,40 +1,65 @@
 # RocClientThrottle
 A WiFi Rocrail Client throttle 
 
+## A Simple throttle for Rocrail. 
+Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends each command as a separate MQTT message.
+Now optimised to use a rotary switch and pushbutton. 
 
-## A very simple throttle for Rocrail. 
-Uses the new Rocrail 'lcprops' command to get the Loco list. This method sends each loc as a separate Mqtt message.
+## Compiling
+Compatible with ESP32 and ESP8266 hardware. 
+Tested with Arduino Board = "NodeMCU 1.0 (ESP12E Module)" and Board= '"Wemos" Wifi+Bluetooth'  options.
+Uses these Arduino Libraries, which must be installed for the program to compile:
+<Rotary.h>    //https://github.com/brianlow/Rotary
+<JC_Button.h> // https://github.com/JChristensen/JC_Button
+<SSD1306.h>   // https://github.com/ThingPulse/esp8266-oled-ssd1306
+<PubSubClient.h>  //https://github.com/knolleary/pubsubclient
+Because Rocrail sends unusually long MQTT messages, it is important to increase the size of message that PubSubClient can accept. To do this you need to moodify your PubSubClient.h at or around line 17 or so..to add  #define MQTT_MAX_PACKET_SIZE 10000  
 
-This code allows for up to 126 locos. Above this the code gets unstable. 
-If you have >100 locos you should be considering another "proper" throttle!  
+## USE
+When the unit is turned on, it waits 3 seconds to allow you to modify its WiFi router settings etc. After this short delay it will connect to the wifi, find the Rocrail MQTt broker, and ask Rocrail for a list of Locos. It will then display a screen that allows you to select which loco to control. This list only shows locos that are Active and Not hidden in the Rocrail Loco table. 
 
-## Use
-Compile using the Board = "NodeMCU 1.0 (ESP12E Module)" option.  
-Then, after the unit has found the wifi router and connected to the MQTT broker the screen will show an image of a loco and the words "press to refresh Loco List". Press the 5 way button "in" (or "right") and the list should populate with your list of locos from Rocrail. 
-When in the top level of the menu, Press the button "up" or "down" to select the loco you want to use.
-Press "right" (Away from the OLED) and the screen will show the loco name, and "Speed:0". Pressing the button "in" when moving and the speed is immediately set to 0 {STOP}. Pressing the putton in when the speed IS 0 will send F2 to the loco which on most locos is a toot. 
-From Speed, press "right" to access a screen where the functions can be set/checked . This screen also allows the lights to be turned on and off in position F0. From V006 the throttle picks up the function names defined in the Rocrail Loco table. 
-From the Fn selection screen, press "right" again to scroll to the loco selection screen.
+Whilst on the "Select Loco" menu, you can LONGPress the select button to change the Rocrail Power State. LongPress for more than 1 second will turn Power OFF. Pressing and holding for longer than two seconds will turn power back ON. An indicator in the top left of the screen shows the current RocRail power status.
 
-Pressing "Left" at any time will reboot the code. Do not blame me, the switch is hardwired to reset!. I have added some untested "ButtonLeft" code intended to be used with D8 but this is currently {v006} commented out {RocClientThrottle.ino line 393} and UNTESTED {IE  my board crashed when I tested it !!} . 
+A quick, short press of the select button moves from Select Loco to Speed Control. A Longpress here will instantly take the selected loco to Speed=0. Moving the rotary switch or selecting up or down buttons will change speed and send this command to RocRail.
 
-## Getting the Loco List
+A quick, short press of the select button moves from Speed Control to Functions. Up and down (or rotate the rotary switch) select which function to operate. A LongPress will then send the function command to Rocrail. If the Function is a momentary function, the Throttle will send a "start", and rocrail will later turn the function off at the time set in the loco function table. If the Function is a toggle, like for example "lights", the throttle will toggle between the two states with every "Longpress". If you have set names for the functions, the throttle will display these names.
 
-Pressing "Select" OR "Right" both now trigger the Lcprops message, so its easier to get the loco list (My 5 way switches are sometimes hard to "select")
-
-You can now also "cycle" the menu levels around and providing you do not change the loco selection, the speed will remain as set. 
-If you do change the loco selection, then the speed will set to zero to prevent mishaps.   
-
-When you "select" a Loco and change to the speed view, the throttle requests Function settigs from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.
-
-## Speeds
-Because of the simplicity of the throttle, from V006 the step speed changes have been removed. 
-
-The rotary switch changes speeds in "1" steps by the rotary control and "10" steps by the up and down buttons. If you are at speed zero, pressing the select (in) button sounds F2. (F2 is 'Toot' on all my locos) {you can change this in Menu.h, line 357} If you are moving, pressing the same button acts as an emergency brake and sets speed zero.
-
+A quick, short press of the select button then moves from Functions back to Select Loco.
 
 ## Hardware
-Designed for "WeMos Battery OLED Board". This includes battery, 5 way switch and Oled.
+The code is designed by default to use the NodeMCU / Wemos OLED + 18650 battery +4 way switch board. 
+With this board, Press "right" (Away from the OLED) to scroll through the menu levels, Pressing the button "in" is used for the short and long presses. 
+Pressing "Left" at any time on this hardware will reboot the code. Do not blame me, the switch is hardwired to reset!. 
+The code also works nicely with the WiFi Bluetooth Battery Esp32 0.96 Inch OLED board, but you will have to add connections to an external rotary switch. 
+(All connections needed for the OLED, Rotary Switch and 4 way or 5 way switches are listed in the Secrets.h file).
+
+
+## Select Loco 
+Up and Down buttons (or the Rotary switch) can be used to select which loco to control. 
+A small display at the bottom of the screen shoows how many locos are available.
+
+## Speed Control 
+The Throttle should pick up any speed changes made by Rocrail. If you change the speed, Rocrail will change the Loco Speed. 
+If you LongPress the select button, the speed will immediately be dropped to 0.
+The Rotary switch uses knowledge of the V_Max set in the rocrail loco table to modify how the speed changes. This should give about one and a half turns from 0 to full speed. 
+Up and down buttons add or subtract 5 to the speed.
+
+## Functions 
+When change to the function view, the throttle requests Function settings from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.
+
+## Setting WiFi name, password, etc.
+When first turned on, the throttle waits 3 seconds to allow you to enter "xxx" via a serial port. 
+This makes the throttle enter a mode where you can change the saved WIFI name and password, and other settings.
+If you have connected the Throttle to a terminal emulator set to speed 115200 baud, you should see text like this as the throttle turns on:  
+"           This is Rocrail Client Throttle 
+"            Named      "ESP8266Throttle" 
+"--- To enter new wifi SSID / Password type 'xxx' BEFORE wifi connects--- 
+"-- Use 'Newline' OR 'CR' to end input line  --
+ 
+If you then press "xxx" (+enter with lf or cr) on a connected terminal,  the Throttle will prompt sequentially for a new Router name, password, MQTT broker address and nickname for the throttle. Pressing (return) will keep the current settings, but typing anything will change the settings. 
+The last menu otion is to press "sss" or "rrr". sss(+cr or lf) will save the new entries to the EEPROM, and the throttle will start. "rrr" will go to the start of the entry process to allow you to reenter any changes.  
+
+
 
 ## Rocrail Version
 Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops command to itterate all
@@ -42,9 +67,10 @@ Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops
 ## Notes
 To get xbm images working with the <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306 it is essential to download and use GIMP https://www.gimp.org/downloads/ Load your image, then export as XBM. None of the simpler LCD image tools correctly format for the XBM format and all I tested had the bit order wrong for the code. Thanks to Jan Vanderborden for directing me in the direction of a solution! 
 
-Its very important to increase the size that the MQTT interface can use: 
+Ass noted at the start.. Its very important to increase the size that the MQTT interface can use: 
 // put this in pubsubclient.h in your arduino/libraries/PubSubClint/src 
 #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
+
 
 I am not connected to Rocrail, I just like it and use it.
 
