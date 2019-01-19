@@ -28,6 +28,7 @@ int MSG_content_length(){
   return Length;
 }
 
+extern uint8_t NodeMCUPinD[12];
 void CheckForSerialInput(){
   String MSGText;
   String MSGText1;
@@ -36,7 +37,10 @@ void CheckForSerialInput(){
   String MSGText4;
     String TestData;
     long Timestarted;
-    bool UpdateInProgress;
+    bool UpdateInProgress; 
+    long FlashTime;
+    char CtrlE;
+    CtrlE=5;
     // will try to change wifiSSID,wifiPassword
     UpdateInProgress=false;
     if (wifiSSID=="Router Name"){UpdateInProgress=true;Serial.println(" Forcing request for new entries as Default Router name has not been set in Secrets.h");
@@ -48,20 +52,26 @@ void CheckForSerialInput(){
                                     Serial.println("");
                                     Serial.println(F("--- To enter new wifi SSID / Password type 'xxx' BEFORE wifi connects--- "));
                                     Serial.println(F("-- Use 'Newline' OR 'CR' to end input line  --"));
-                                    OLED_5_line_display_p("","","","Pausing for Serial I/O","type 'xxx' to start");
+                                    Serial.println(F("Starting~~~~~~~~~~~~~~~~~~~~~~~~waiting~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Timeout "));
+                                    delay(10);Serial.print(CtrlE);delay(100); OLED_5_line_display_p("","","","Pausing for Serial I/O","type 'xxx' to start");
                                        }
     Timestarted=millis();
-
+    FlashTime=millis();
+    bool LAMP;
   // test to see if we can sense if serial cable connected -- Answer no we cannot!! only the Leonardo can  if (Serial){OLED_5_line_display_p("","","","Serial ON","");}else{OLED_5_line_display_p("","","","Serial OFF","");}
     
     while ((millis()<= Timestarted+3000) || UpdateInProgress) {
+       ///   toggle  signal lamp
+      if ((millis()>= FlashTime)&& (!UpdateInProgress)) { LAMP=!LAMP; FlashTime=millis()+50; digitalWrite (NodeMCUPinD[0] , LAMP) ;Serial.print("~");}
+      
       delay(1); // Allow esp to process other events .. may not be needed, but here to be safe..                                      
       recvWithEndMarker();
       if (newData == true) {TestData=receivedChars;
-                          //Serial.print("<");Serial.print(TestData);Serial.print("> Looking for {");Serial.print(LookFor);Serial.println("}");
+                          //Serial.print("Data <");Serial.print(TestData);Serial.println(">"); 
+                          //("> Looking for {");Serial.print(LookFor);Serial.println("}");
                           switch (SerioLevel){ 
                           case 0:
-                                 if (TestData=="xxx\0"){
+                                 if ((TestData=="xxx\0")||(TestData=="XXX\0")){
                                     UpdateInProgress=true;
                                     //display.clear(); display.drawString(64, 32, "Type in New SSID"); display.display();
                                     OLED_5_line_display("Type in New SSID",""," ","","");
@@ -202,7 +212,7 @@ void TestFillEEPROM(int d){
      EEPROM.commit();delay(100);// 
 }
 
-void writeString(char add,String data)
+void writeString(int add,String data)
 {
   int _size = data.length();
   int i;
@@ -228,7 +238,7 @@ void writeString(char add,String data)
 }
  
  
-String read_String(char add)
+String read_String(int add)
 {
   int i;
   char data[100]; //Max 100 Bytes

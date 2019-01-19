@@ -19,8 +19,8 @@
  void showNewData() ;    // shows recieved (serial) <receivedChars> data on serial terminal, useful for debugging 
  void WriteWiFiSettings();
  void TestFillEEPROM(int d);
- void writeString(char add,String data);  // defned here to allow use later but before its properly defined..
- String read_String(char add);             // defned here to allow use later but before its defined..
+ void writeString(int add,String data);  // defned here to allow use later but before its properly defined..
+ String read_String(int add);             // defned here to allow use later but before its defined..
  void recvWithEndMarker() ;
  void showNewData();
 
