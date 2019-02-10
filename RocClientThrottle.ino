@@ -3,7 +3,7 @@
 #define Rotary_Switch  // comment this out if not using the additional Rotary_Switch switch 
 #ifdef Rotary_Switch
  #include <Rotary.h>   ///https://github.com/brianlow/Rotary
- Rotary r= Rotary(EncoderPinA, EncoderPinB);  //D3 D4
+ Rotary r= Rotary(EncoderPinA, EncoderPinB);  //D9 D4
  long ThrottlePosition;
  long LastThrottlePosition;
  bool Encoder_Timeout;
