@@ -59,7 +59,20 @@ If you have connected the Throttle to a terminal emulator set to speed 115200 ba
 If you then press "xxx" (+enter with lf or cr) on a connected terminal,  the Throttle will prompt sequentially for a new Router name, password, MQTT broker address and nickname for the throttle. Pressing (return) will keep the current settings, but typing anything will change the settings. 
 The last menu otion is to press "sss" or "rrr". sss(+cr or lf) will save the new entries to the EEPROM, and the throttle will start. "rrr" will go to the start of the entry process to allow you to reenter any changes.  
 
+There is a very easy way to get this to work, by using PuTTY. 
+|If you have PuTTY, set up a session like this: 
+Session: Serial Line (the serial port you use) Speed(115200) Connection type "serial". (+ save it!) 
+Then Terminal: Set the "Answerback to ^E " to "xxx^M" (without inverted commas!!), 
+Local Echo "on", Local Line editing "on". Implicit CR with LF "ON" , Implicit LF with CR "ON" 
+....Then go Back to Session and "SAVE" the session with a name you chose. (Very important as otherwise the terminal answerback stuff will not be saved!)
 
+Now, turn on the throttle, and connect to PC. -- do not worry that it starts up fully and logs in etc.
+Open PuTTY, select the session we saved before, and press "Open". 
+For some reason, this seems to initiate a reset on the board and then PuTTY sends the magic xxx(cr) which immmediately gets us into the "SSID select" etc, with NO waiting!
+
+Note: For some reason this setup method does not work the very first time after the board has been flashed, so you need to power down and restart after a programming via Arduino, otherwise it works well. 
+
+It works so well I may reduce the waiting time in any later code updates!
 
 ## Rocrail Version
 Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops command to itterate all
