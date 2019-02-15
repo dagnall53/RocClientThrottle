@@ -66,6 +66,26 @@ Bar=(Height*Fill_percent/100);PosY=Height-PosY;
 display.fillRect(PosX,PosY-Bar,Width,Bar+Height-PosY);
   
 }
+
+void SignalStrengthBar( int32_t rssi) { //https://stackoverflow.com/questions/15797920/how-to-convert-wifi-signal-strength-from-quality-percent-to-rssi-dbm
+  int PosX,PosY;
+ 
+  // rssi -90 is just about dropout..
+  // rssi -40 is a great signal
+  PosX=108;  // position left right  max = 128
+  PosY=0; // top left position up / down max 64
+   
+  display.drawVerticalLine(PosX,PosY,10);
+  display.drawLine(PosX,PosY+4,PosX-4,PosY);
+  display.drawLine(PosX,PosY+4,PosX+4,PosY);
+  if (rssi >= -50) { display.drawLine(PosX+10,PosY,PosX+10,PosY+10);}
+  if (rssi >= -55){display.drawLine(PosX+8,PosY+2,PosX+8,PosY+10);}
+  if (rssi >= -65){display.drawLine(PosX+6,PosY+4,PosX+6,PosY+10);}
+  if (rssi >= -70){display.drawLine(PosX+4,PosY+6,PosX+4,PosY+10);}
+  if (rssi >= -80){display.drawLine(PosX+2,PosY+8,PosX+2,PosY+10);}
+
+ }
+/*
 void SignalStrengthBar( int32_t rssi) { 
   int PosX,PosY,Height,Width,Bar;
   // rssi -90 is just about dropout..
@@ -87,7 +107,7 @@ void SignalStrengthBar( int32_t rssi) {
   PosY=Height-PosY;
   display.fillRect(PosX,PosY-Bar,Width,Bar+Height-PosY);
  }
-
+*/
 
 void drawImageDemo() {
     // see http://blog.squix.org/2015/05/esp8266-nodemcu-how-to-create-xbm.html

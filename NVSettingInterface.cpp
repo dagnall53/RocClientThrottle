@@ -29,6 +29,7 @@ int MSG_content_length(){
 }
 
 extern uint8_t NodeMCUPinD[12];
+extern bool SelectPressed();
 void CheckForSerialInput(){
   String MSGText;
   String MSGText1;
@@ -47,31 +48,33 @@ void CheckForSerialInput(){
                                     Serial.println("--Serial port update Started--");
                                     Serial.print("  SSID currently is <");Serial.print(wifiSSID);Serial.print("> Password is <");Serial.print(wifiPassword); Serial.println(">");
                                     Serial.println("Type in New SSID");newData = false;SerioLevel=1;
-                                    OLED_5_line_display("EEPROM settings required","Use Serial port @115200","To enter new data"," ","");
+                                    OLED_5_line_display("EEPROM settings required","Use Serial port @115200","To enter WiFi details","Press Select"," to start");
                                  }else{
                                     Serial.println("");
-                                    Serial.println(F("--- To enter new wifi SSID / Password type 'xxx' BEFORE wifi connects--- "));
+                                    Serial.println(F("--- To enter new wifi details / Press Select or type 'xxx' BEFORE wifi connects"));
                                     Serial.println(F("-- Use 'Newline' OR 'CR' to end input line  --"));
                                     Serial.println(F("Starting~~~~~~~~~~~~~~~~~~~~~~~~waiting~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Timeout "));
-                                    delay(10);Serial.print(CtrlE);delay(100); OLED_5_line_display_p("","","","Pausing for Serial I/O","type 'xxx' to start");
+                                    delay(10);Serial.print(CtrlE);delay(100); OLED_5_line_display_p("","","Pausing for Serial I/O","type 'xxx' to start","or 'Select'");
                                        }
     Timestarted=millis();
     FlashTime=millis();
     bool LAMP;
   // test to see if we can sense if serial cable connected -- Answer no we cannot!! only the Leonardo can  if (Serial){OLED_5_line_display_p("","","","Serial ON","");}else{OLED_5_line_display_p("","","","Serial OFF","");}
-    
-    while ((millis()<= Timestarted+3000) || UpdateInProgress) {
+  // but we can test the "select" button..  
+    while ((millis()<= Timestarted+4000) || UpdateInProgress) {
        ///   toggle  signal lamp
       if ((millis()>= FlashTime)&& (!UpdateInProgress)) { LAMP=!LAMP; FlashTime=millis()+50; digitalWrite (NodeMCUPinD[0] , LAMP) ;Serial.print("~");}
       
       delay(1); // Allow esp to process other events .. may not be needed, but here to be safe..                                      
       recvWithEndMarker();
-      if (newData == true) {TestData=receivedChars;
+      if ( (SelectPressed()&& (SerioLevel==0) )||(newData == true) )
+             {
+                          if (newData == true){TestData=receivedChars;}
                           //Serial.print("Data <");Serial.print(TestData);Serial.println(">"); 
                           //("> Looking for {");Serial.print(LookFor);Serial.println("}");
                           switch (SerioLevel){ 
                           case 0:
-                                 if ((TestData=="xxx\0")||(TestData=="XXX\0")){
+                                 if ((TestData=="xxx\0")||(TestData=="XXX\0")|| SelectPressed()){
                                     UpdateInProgress=true;
                                     //display.clear(); display.drawString(64, 32, "Type in New SSID"); display.display();
                                     OLED_5_line_display("Type in New SSID",""," ","","");
