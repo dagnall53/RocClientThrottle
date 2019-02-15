@@ -56,7 +56,7 @@ If you have connected the Throttle to a terminal emulator set to speed 115200 ba
 "--- To enter new wifi SSID / Password type 'xxx' BEFORE wifi connects--- 
 "-- Use 'Newline' OR 'CR' to end input line  --
  
-If you then press "xxx" (+enter with lf or cr) on a connected terminal,  the Throttle will prompt sequentially for a new Router name, password, MQTT broker address and nickname for the throttle. Pressing (return) will keep the current settings, but typing anything will change the settings. 
+If you then press "xxx" (+enter with lf or cr) on a connected terminal, (OR (v26 on) press the Select key..)  the Throttle will prompt sequentially for a new Router name, password, MQTT broker address and nickname for the throttle. Pressing (return) will keep the current settings, but typing anything will change the settings. 
 The last menu otion is to press "sss" or "rrr". sss(+cr or lf) will save the new entries to the EEPROM, and the throttle will start. "rrr" will go to the start of the entry process to allow you to reenter any changes.  
 
 There is a very easy way to get this to work, by using PuTTY. 
