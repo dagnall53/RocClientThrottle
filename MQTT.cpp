@@ -806,6 +806,7 @@ void MQTT_ReConnect() {
                     cx= sprintf (MsgBL, "@ addr: %d:%d:%d:%d", mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
                     OLED_5_line_display_p("",MsgTL,MsgML,MsgBL,"");
             // Attempt to mqtt connect
+                               delay(100); //added to improve stability
            if (client.connect(ClientName)) {// can advise this node is now connected 
                               // for debug   Serial.print("connected);  Serial.println();
                               PrintTime("---MQTT Connected /n" );
