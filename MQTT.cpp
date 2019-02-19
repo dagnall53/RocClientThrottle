@@ -619,6 +619,10 @@ if (strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1){
           mins = TIME /60;
           TIME %= 60;
           secs = TIME;
+              // new to cope with non UTC railways!!!
+          Temp=ParseforAttribute("<clock ","hour=\"",'\"',payload,Length);    
+          hrs=Temp.toInt(); // Use hour= (Rocview /local time 
+      
          // Serial.println("Time synch ");
          // printf("Time read: H:M:S - %d:%d:%d   %d new\n",hrs,mins,secs,((LoopTimer-LastSynchTime)*clock_divider/1000));
           Temp =ParseforAttribute("<clock ","divider=\"",'\"',payload,Length);
