@@ -1,4 +1,4 @@
-#define ver 26
+#define ver 27
 #include "Secrets.h"
 #define Rotary_Switch  // comment this out if not using the additional Rotary_Switch switch 
 #ifdef Rotary_Switch
@@ -108,9 +108,7 @@ char DebugMessage[128];
 // allows call to check buttonstate
 
 bool SelectPressed(){
-  bool Ispressed;
-  Ispressed=SelectButtonButton.isPressed();
-  return Ispressed;
+   return !(digitalRead(SelectButton));
 }
 
 
