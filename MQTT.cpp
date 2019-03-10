@@ -5,15 +5,15 @@
 #define SignalON LOW  // defined so I can change the "phase of the SignalLED" easily.
 #define SignalOFF HIGH
 
-
+// ---------------------VERY IMPORTANT ---------------------------------------------------   
 // put these changes in PubSubClient.h at or around line 17 or so..
 //        #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
 //(And, if using RSMB and not Mosquitto..)
 //        #define MQTT_VERSION MQTT_VERSION_3_1 //Rocrail needs to use V 3_1 not 3_1_1 (??)
+// ---------------------VERY IMPORTANT ---------------------------------------------------   
+
+
 #include <PubSubClient.h>
-
-
-
 
 #include <WiFiClient.h>
 WiFiClient espClient;
@@ -22,6 +22,9 @@ PubSubClient client(espClient);
 
 extern IPAddress mosquitto;
 extern String NameOfThisThrottle;
+extern void OLED_5_line_display(String L1,String L2,String L3,String L4,String L5);
+extern void OLED_5_line_display_p(String L1,String L2,String L3,String L4,String L5);
+
 //#include "Globals.h";
 
 byte payload[12000];
@@ -32,9 +35,11 @@ extern uint8_t subIPL;
 extern int connects;
 
 char* Nickname;
-uint8_t hrs;
-uint8_t mins;
-uint8_t secs;  
+int hrs;
+int mins;
+int secs;  
+int clock_divider;
+bool Clock_Freeze;
 char DebugMsg[127];
 uint8_t NodeMCUPinD[12];
 
@@ -49,21 +54,25 @@ extern bool AllDataRead;
 byte ParseIndex;
 int SwitchNumbers;
 int LocoNumbers;
-
+extern bool PowerON;
 String FunctionName[N_Functions+1];
 bool FunctionState[N_Functions+1];
+bool FunctionStateKnown[N_Functions+1];
 int FunctionTimer[N_Functions+1];
+int Loco_V_max;
 String LOCO_id[MAXLOCOS+1];
 String SW_id[MAXLOCOS+1];
 
 
 int SW_bus[MAXLOCOS+1];
 int SW_addr[MAXLOCOS+1];
+
+String FN_state_string;
 extern int switchindex;
 extern int RightIndexPos;
 extern int LeftIndexPos;
 extern byte SW_all[9];
-
+/*
 int Count(unsigned int start,char* id, byte* data,unsigned int Length) {// to find string id in data and count  (max 65k)
  int count;int allsame;
  unsigned int id_Length;
@@ -86,19 +95,21 @@ int Count(unsigned int start,char* id, byte* data,unsigned int Length) {// to fi
     if (id[y]==char(data[x+y])){allsame=allsame+1;}
         }
   if (allsame==id_Length+1){count=count+1;
-  /*
-      Serial.print(" at x=");Serial.print(x);Serial.print("  found id number:");Serial.println(count);Serial.print(" Next 20 data are  <");
-          for (int show=0;show<=20;show++) { Serial.print(char(data[x+Y+show]));}
-      Serial.println();
-  */
+  //
+  //    Serial.print(" at x=");Serial.print(x);Serial.print("  found id number:");Serial.println(count);Serial.print(" Next 20 data are  <");
+  //        for (int show=0;show<=20;show++) { Serial.print(char(data[x+Y+show]));}
+  //    Serial.println();
+  //
   }
    
  }
  return count;
 }
+*/
+// ASSISTANTS for "Attrib" function Debugging 
   // #define _attribdebug
- // #define _attribdebugc
- // #define _attribdebugplus
+  // #define _attribdebugc
+  // #define _attribdebugplus
  extern const int MaxAttribSize=35 ;
  extern char FoundAttrib[MaxAttribSize];
  
@@ -116,11 +127,14 @@ int count;int allsame;int Firstcount; int Y; int Z;
   for (int fill=0; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // fill with null
   
  // for debug 
+ #ifdef _Debug_with_Clock  
+         if(AttributeName=="cmd=\""){Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(AttributeName);Serial.println(">  ");}
+ #endif 
  #ifdef _attribdebugplus 
-  Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(AttributeName);Serial.println(">  ");
+         Serial.println();Serial.print("starting search for (first) entry  of <");Serial.print(First);Serial.print("> then < ");Serial.print(AttributeName);Serial.println(">  ");
  #endif 
  FirstFound=false;  
-    for (unsigned int x=0 ; x<= Length-AttributeName_Length-20; x++){
+    for (unsigned int x=0 ; x<= Length-AttributeName_Length; x++){
        allsame=0;
        Firstcount=0;
 
@@ -161,6 +175,9 @@ int count;int allsame;int Firstcount; int Y; int Z;
                 if (allsame==AttributeName_Length+1){count=count+1;} // count 
                 if (count==1){  // found  nth occurrence of AttributeName
          // for debug
+         #ifdef _Debug_with_Clock 
+                     if(AttributeName=="cmd=\""){Serial.print("found Second text at char<");Serial.print(x);Serial.print(">  is<");}
+         #endif 
           #ifdef _attribdebugplus        
                      Serial.print("found Second text at char<");Serial.print(x);Serial.print(">  is<");
           #endif
@@ -168,7 +185,10 @@ int count;int allsame;int Firstcount; int Y; int Z;
                    //FoundAttrib[z]=char(data[x+Y+z+1]);
                    if (data[x+Y+z+1]==End){FoundAttrib[z]=0;  // end of data with char End eg, 34 == (")
                    for (int fill=z; fill<=MaxAttribSize;fill++){FoundAttrib[fill]=0;  } // not needed with filled string with '0' ?
-                    // for debug  
+                    // for debug 
+                    #ifdef _Debug_with_Clock 
+                           if(AttributeName=="cmd=\""){Serial.println(">");}
+                    #endif 
                      #ifdef _attribdebugplus 
                            Serial.println(">");
                      #endif
@@ -176,6 +196,9 @@ int count;int allsame;int Firstcount; int Y; int Z;
                    return FoundAttrib;}
                 else{FoundAttrib[z]=char(data[x+Y+z+1]);
                   // for debug 
+                   #ifdef _Debug_with_Clock
+                      if(AttributeName=="cmd=\""){Serial.print(char(data[x+Y+z+1]));}
+                   #endif 
                    #ifdef _attribdebugplus  
                       Serial.print(char(data[x+Y+z+1]));
                    #endif  
@@ -261,23 +284,34 @@ void ParsePropsLocoList(byte loco, byte* payload, unsigned int Length){
    }
 
 void ParseLocoFunctionsList(byte loco, byte* payload, unsigned int Length){
-  String LookFor; String SecondText; String FirstText; 
+  String LookFor; String SecondText; String FirstText; String found;
   int index;
   index=0;
-     Serial.print("Functions reading for loco id[");Serial.print(loco);Serial.print("] <");Serial.println(LOCO_id[loco]);
-     for (index=0;index<=16;index++){
+      LookFor="<lc id=\"";
+      LookFor+=LOCO_id[loco];
+      LookFor+="\""; 
+      SecondText=" V_max=\"";
+      Loco_V_max = atoi(ParseforAttribute(LookFor,SecondText,'\"',payload,Length));
+ 
+      Serial.println();Serial.print("Getting data for selected loco id[");Serial.print(loco);Serial.print("] <");Serial.print(LOCO_id[loco]);Serial.print("] V_max is<");Serial.print(Loco_V_max);Serial.println(">");
+     for (index=0;index<=N_Functions;index++){
       LookFor="<fundef fn=\"";
       LookFor=LookFor+index;
       LookFor+="\""; 
       FirstText=" text=\"";
       SecondText=" timer=\"";
-      FunctionName[index] = ParseforAttribute(LookFor,FirstText,'\"',payload,Length);
-      FunctionTimer[index] = atoi(ParseforAttribute(LookFor,SecondText,'\"',payload,Length));
+      found=ParseforAttribute(LookFor,FirstText,'\"',payload,Length);
+      if (found != ""){//Serial.print("Found Function data  ");
+                           FunctionName[index] = found;
+                           FunctionTimer[index] = atoi(ParseforAttribute(LookFor,SecondText,'\"',payload,Length));
+                       }
       //Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> Timer:"); Serial.println(FunctionTimer[index]);
       //Serial.print("fn name");Serial.print(" <");Serial.print(FunctionName[index]); Serial.print("> "); Serial.print("timer");Serial.print(" <");Serial.print(FunctionTimer[index]); Serial.print("> ");
       }
       // Serial.println("> ");
    }
+
+   
 void ParseSwitchList(byte Switch, byte* payload, unsigned int Length){
   String Result;
      // allow processor to do other things?
@@ -308,7 +342,6 @@ uint8_t ROC_len;
 uint8_t ROC_Data[200];
 
 
-//
 extern char DebugMessage[128];
 char*  Show_ROC_MSG(uint8_t Message_Length) {
   //char DebugMessage[128];
@@ -366,21 +399,35 @@ void MQTTFetch (char* topic, byte* payload, unsigned int Length) { //replaces or
   // do a check on length matching payload[7] ??
   char PayloadAscii[101];
   unsigned int y;
-  int cx;
-  char DebugMsgLocal[127];
+
   for (int i=0; i<=100;i++){PayloadAscii[i]=char(payload[i]);}
   Message_Decoded = false;
 
-//  Do Clock synch   
+//  Do Rocnet Clock synch   
+ //     extern uint32_t LastSynchTime;
+ //     extern uint32_t LoopTimer;
+  int h,m,s,di,qu;String TimeMsg;
   if ((strncmp("rocnet/ck", topic, 9) == 0)) { //==0 if n bytes are the same
-     hrs = payload[12];
-     mins = payload[13];
-     secs = payload[14]; 
+    ROC_netid = payload[0];
+    ROC_recipient = IntFromPacket_at_Addr(payload, Recipient_Addr); //1
+    ROC_sender = IntFromPacket_at_Addr(payload, Sender_Addr);       //3
+    ROC_group = payload[5];
+    ROC_code = payload[6];
+    ROC_len = payload[7];
+  
+    for (byte i = 1; i <= ROC_len; i++) {
+      ROC_Data[i] = payload[7 + i];}
+     h = ROC_Data[5];
+     m = ROC_Data[6];
+     s = ROC_Data[7];
+     di= ROC_Data[8];
+     qu= ROC_Data[9];
      Message_Decoded = true;
-     delay(subIPL);
-     DebugSprintfMsgSend( sprintf ( DebugMsg, " IPaddr .%d  Time Synchronised. ",subIPL));
+     //TimeMsg="Rocnet clock synch ";TimeMsg+=h ;TimeMsg+=":"; TimeMsg+=m;TimeMsg+=":";TimeMsg+=s;TimeMsg+="\n";
+     // debug that found the rocnet protocol error..
+     //DebugSprintfMsgSend( sprintf ( DebugMsg, "Rocnet clock MsgLen:%d Code:%d   <%d:%d> Temp<%d>  Divider<%d>  Q?<%d>",ROC_len,ROC_code,h,m,s,di,qu));  
      }
-// end clock synch
+// end Rocrail clock synch
 
 // Rocnet messages are included Because a variant of this code exists (Client Tool) that allows modification of Servo positions
 //   a "Programming stationary" message
@@ -443,7 +490,7 @@ if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
                         _Active=ParseforAttribute("<lc id=\"","active=\"",'\"',payload,Length);
                         //Serial.print (" found<");Serial.print(_Show);Serial.println ("> ");
                         
-                        if ((_Show=="true")&&(_Active=="true")){
+                        if (_Show=="true"){  //was previously if ((_Show=="true")&&(_Active=="true")){
                          // Serial.print (" got here<");Serial.print(_Show);Serial.println ("> ");
                                                     ParsePropsLocoList(ParseIndex,payload,Length);
                                                     // LocoNumbers++;
@@ -465,7 +512,7 @@ if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
 // function change? in fn message..          
 int FN_seen;
 String FN_ascii;
-String FN_state_string; 
+ 
 String LocoIDForFnChanged;
 bool FN_attribute; 
 String MSG;
@@ -482,9 +529,10 @@ if ((strlen(Attrib('\"',MSG,payload,Length))>=1)){
               FN_state_string=ParseforAttribute("<fn fnchanged",MSG,'\"',payload,Length);
               if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
               FunctionState[FN_seen]=FN_attribute;
-                  //  Serial.print(F(" Function changed seen "));
-                  //  Serial.print("  F<");Serial.print(FN_seen);
-                  //  Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
+              FunctionStateKnown[FN_seen]=true;
+                    Serial.print(F(" Function changed seen "));
+                    Serial.print("  F<");Serial.print(FN_seen);
+                    Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
               }
               
               Message_Decoded = true;// we understand this message
@@ -501,19 +549,15 @@ if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){
               FN_state_string=Attrib('\"',MSG,payload,Length);
               if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
               FunctionState[FN_seen]=FN_attribute;
+              FunctionStateKnown[FN_seen]=true;
+              
                     Serial.print(F(" Fn change seen "));
                     Serial.print("  F<");Serial.print(FN_seen);
                     Serial.print("> fnchange_state:");Serial.println(FN_state_string); 
               }
                             Message_Decoded = true;// we understand this message
              }
-// function change seen in <lc message?             
-//if ((strlen(Attrib('\"',"<lc ",payload,Length))>=1)    &
-//            (strlen(Attrib('\"',"id=\"",payload,Length))>=1)){  
-//              Message_Decoded = true;
-//             }
-
-// speed changed ? (also checks lights status)     
+   
 // format #3
 MSG="<lc id=\"";
 //if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){  
@@ -527,6 +571,7 @@ MSG="<lc id=\"";
                 FN_state_string=ParseforAttribute("<lc id=\"","fn=\"",'\"',payload,Length);  
                       if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
                       FunctionState[0]=FN_attribute;
+                      FunctionStateKnown[0]=true;
                Serial.print(F("Speed change message for Me"));  Serial.print(F(" Velocity :"));Serial.print(speedindex);  Serial.print(F(" Lights status :"));Serial.println(FN_state_string); 
                      } // this message was for me
                Message_Decoded = true;// we understand this message
@@ -542,29 +587,59 @@ if (strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1){
         // Serial.println(ThisID);
           if ((ThisID==LOCO_id[locoindex])){
          Serial.print(F("Throttle Release seen for me!"));
-          //DebugMsgSend("debug","Throttle control released");
-          //DebugSprintfMsgSend(sprintf(DebugMsg," control of %s released",ThisID.c_str()));
-          //ThisID="This is an unlikely name";
-          //LOCO_id[0]=ThisID;
-          //LocoNumbers=0;
-          //ParseIndex=0;
-          //AllDataRead=false;
           MenuLevel=0;
                  }}
           Message_Decoded = true;
-       }
+       }// release throttle..
       
         
     }// end of service info message checks , including release loco throttle
+
+
+     if (strncmp("<clock ",PayloadAscii,7)==0){
+      String Temp,CmdMsg;
+      extern uint32_t LastSynchTime;
+      extern uint32_t LoopTimer;
+      extern uint32_t TIME;
+      CmdMsg =ParseforAttribute("<clock ","cmd=\"",'\"',payload,Length);
+      if (CmdMsg=="go"){Clock_Freeze=false;LastSynchTime=LoopTimer;} // save the time the the clock was frozen....
+      if (CmdMsg=="sync"){LastSynchTime=LoopTimer; }
+      if (CmdMsg=="freeze"){Clock_Freeze=true;LastSynchTime=LoopTimer;}
+      Temp=ParseforAttribute("<clock ","time=\"",'\"',payload,Length);    
+          TIME=Temp.toInt(); // Use Time= (from the time since the Epoch (00:00:00 UTC, January 1, 1970), measured in seconds
+                             // Becuse this is sent with every <clock message, so synchronises the timer better than alternatives. 
+                             //https://www.geeksforgeeks.org/converting-seconds-into-days-hours-minutes-and-seconds/
+          int d;
+          
+         // scanf("%d", TIME);  
+          d = TIME / (24 * 3600);
+          TIME = TIME % (24 * 3600); 
+          hrs = (TIME/3600); 
+          TIME %= 3600; 
+          mins = TIME /60;
+          TIME %= 60;
+          secs = TIME;
+
+           // new to cope with non UTC railways!!!
+          Temp=ParseforAttribute("<clock ","hour=\"",'\"',payload,Length);    
+          hrs=Temp.toInt(); // Use hour= (Rocview /local time 
+          
+         // Serial.println("Time synch ");
+         // printf("Time read: H:M:S - %d:%d:%d   %d new\n",hrs,mins,secs,((LoopTimer-LastSynchTime)*clock_divider/1000));
+          Temp =ParseforAttribute("<clock ","divider=\"",'\"',payload,Length);
+          clock_divider=Temp.toInt();
+          DebugSprintfMsgSend( sprintf ( DebugMsg, "Throttle Synchronised. %d:%d:%d \n",hrs,mins,secs));
+          Message_Decoded = true;
+      }
+     // can also be is done in rocnet decode 
+      //Serial.print(F("Clock msg<"));
  
                                  
 // other known but unimportant (to me in this code) messages
      if (strncmp("<exception text=",PayloadAscii,16)==0){
          Message_Decoded = true; 
          }  
-     if (strncmp("<clock divider=",PayloadAscii,15)==0){
-      //Serial.print(F("Clock msg<"));
-         Message_Decoded = true; }
+
      if (strncmp("<program modid=",PayloadAscii,15)==0){
          Message_Decoded = true; }
      if (strncmp("<sw id=",PayloadAscii,7)==0){
@@ -572,8 +647,13 @@ if (strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1){
      if (strncmp("<model cmd=\"lcprops\" ",PayloadAscii,20)==0){
          Message_Decoded = true; }
      // end of other known but unimportant (to me in this code) messages    
-     
-      //switch off debug message decode here
+     if (strncmp("<state ",PayloadAscii,7)==0){
+         FN_state_string = ParseforAttribute("<state ","power=\"",'\"',payload,Length);  
+                      if (FN_state_string =="true"){PowerON=true;}else{PowerON=false;}
+                          Message_Decoded = true; }
+
+                          
+//Unless you are debugging, switch off any more debug message decodes here
       Message_Decoded=true; 
            
  if(!Message_Decoded){
@@ -637,8 +717,9 @@ void MQTTRocnetSend (char* topic, uint8_t * payload) { //replaces rocsend
 }
 
 void MQTTSend (String topic, String payload) { //replaces rocsend
+  extern int On_Board_LED;
   uint8_t Length;
-  digitalWrite (LED_BUILTIN, HIGH) ;  /// turn On
+  digitalWrite (On_Board_LED, HIGH) ;  /// turn On
   Length = payload.length();
   client.publish(topic.c_str(), payload.c_str(), Length);
 
@@ -693,24 +774,7 @@ if ((hrs==0)&&(mins==0)){// not Synchronised yet..
  }
  
 void PrintTime(String MSG) {
-/*      Serial.println("");
-      Serial.print("@");
-      Serial.print(hrs);
-      Serial.print(":");
-      if (mins <= 9){
-        Serial.print("0");
-      }
-      Serial.print(mins);
-      Serial.print(":"); 
-      if (secs <= 9){
-        Serial.print("0");
-      }
-      Serial.print(secs);
-      Serial.print(" ");
-      Serial.print(MSG);
-      */
 Serial.printf("@<%02d:%02d:%02ds>:%s",hrs,mins,secs,MSG.c_str());
-
 }
 
 void DebugSprintfMsgSend(int CX){ // allows use of Sprintf function in the "cx" location to send DebugMsg
@@ -718,9 +782,9 @@ void DebugSprintfMsgSend(int CX){ // allows use of Sprintf function in the "cx" 
   delay(5);
 }
 extern uint8_t wifiaddr;
-extern void OLED_Display(char* L1,char* L2, char *L3);
 
-void reconnect() {
+void MQTT_ReConnect() {
+   extern int On_Board_LED;
    int cx;
    int cx1;
    int cx2;
@@ -731,25 +795,26 @@ void reconnect() {
    
    char Msg[80];
    char ClientName[128];
-  
+  MQTT_Setup();
   sprintf(ClientName, "%s%i", NameOfThisThrottle.c_str(), wifiaddr);  // build client  name from throttle name plus wifi address, this should result in  a unique identifier
  
   sprintf(Msg, "to %i:%i:%i:%i", mosquitto[0],mosquitto[1],mosquitto[1],mosquitto[3]);
   // Loop until we're reconnected 
-  digitalWrite (LED_BUILTIN , SignalOFF) ; ///   turn on led 
+  digitalWrite (On_Board_LED , HIGH) ; ///   turn on led 
  
-  while (!client.connected()) { PrintTime(" Attempting MQTT (re)connection. Attempt #");
-                                Serial.println(connects);
+  while (!client.connected()) { if( connects==0){PrintTime("---Attempting MQTT Connection" );}
+                                                 else {PrintTime("~~~Attempting MQTT (re)connection. Attempt #"); Serial.println(connects);}
              // for debug     Serial.print("<");Serial.print(ClientName);Serial.print("> looking for MQTT broker @:");Serial.print(mosquitto); Serial.println("  ");
              // Messages to assist the user....  
                     cx1= sprintf (MsgTL, "%s",ClientName);  // The strange formatting here places the text for Oled disply in Char[127] defined arrays to avoid a compiler deprecation notification.
                     cx2= sprintf (MsgML, "looking for MQTT broker");  // its not strictly necessary, but I wanted to see if the deprecation warning could be avoided. 
                     cx= sprintf (MsgBL, "@ addr: %d:%d:%d:%d", mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
-                    OLED_Display(MsgTL,MsgML,MsgBL);
-                   // OLED_Display("Looking for","a MQTT Broker @",MsgBL);  // using this simpler call works, but results in a deprecated complier error notice...
-           // Attempt to connect
+                    OLED_5_line_display_p("",MsgTL,MsgML,MsgBL,"");
+                    delay(100);
+            // Attempt to mqtt connect
            if (client.connect(ClientName)) {// can advise this node is now connected 
                               // for debug   Serial.print("connected);  Serial.println();
+                              PrintTime("---MQTT Connected /n" );
                               DebugSprintfMsgSend( sprintf ( DebugMsg, "%s Connected at:%d.%d.%d.%d",ClientName,ip0,ip1,subIPH,subIPL));
                               // ... so now subscribe to topics  http://wiki.rocrail.net/doku.php?id=rocnet:rocnet-prot-en#groups
                                      client.subscribe("rocrail/service/info", 1 ); // server information
@@ -757,19 +822,18 @@ void reconnect() {
                                      client.subscribe("rocnet/ps", 1 ); // Data from the rocnode
                                      //client.subscribe("rocnet/#", 1 ); // Data from all the rocnet msgs
                                      client.subscribe("rocrail/service/client", 1 ); // so can we see client data? test..       
-                                      // no eeprom used in this sketch so no delay needed for write delay EPROM_Write_Delay = millis();
-                                            }  
+                                          }  
                                             else {  // This is where we go if we are NOT connected
                                            //Serial.println("~ failed to find MQTT broker ");
-                                           connects=connects+1;  // Count how many times we do this. So that a single miss to connect to the brokwr does not immediately trigger broker address incrementation
+                                           connects=connects+1;  // Count how many times we do this. So that a single miss to connect to the broker does not immediately trigger broker address incrementation
                                           if (connects>=5){  mosquitto[3] = mosquitto[3]+1; }
                                                   if (mosquitto[3]>=50){mosquitto[3]=3;}
                                                  // Serial.print(" trying MQTT <");Serial.print(mosquitto[3]);Serial.println("> ");  
                                            client.setServer(mosquitto, 1883);   // Hard set port at 1833
                                            delay(100);
-                                           digitalWrite (LED_BUILTIN , SignalON) ; ///   turn ON
+                                           digitalWrite (On_Board_LED , HIGH) ; ///   turn ON
                                            delay(100);
-                                           digitalWrite (LED_BUILTIN , SignalOFF) ; ///   turn ON
+                                           digitalWrite (On_Board_LED , LOW) ; ///   turn OFF
                                                 }
                         }// end of while not connected
 }
