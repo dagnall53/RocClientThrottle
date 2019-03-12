@@ -26,6 +26,10 @@
      const int UpButton = D6;     // the designation of the up pushbutton pin
      const int DownButton = D7;     // the designation o0 the down pushbutton pin
      const int LeftButton = D8  ;    // left NOT used yet 
+     const int ADC_IN = 0 ;       //  pin A 0 on esp8266 has divide by 2 resistor network to V battery
+                                  //NOTE: ADC1 (8 channels, attached to GPIOs 32 - 39),ADC2 is not usable with WiFi https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/adc.html  
+     const int Cal_factor=64;    // set at 64 ?? (for 220K/47k voltage divider. 
+
     #endif
 
     #ifdef ESP32  // on esp pins are strictly Px = pin x not Dx = 'something strange' as on the ESP8266 
@@ -46,7 +50,8 @@
      const int LeftButton = 16;    // P27 is the number of the left pushbutton pin NOT used yet 
 
      const int ADC_IN = 35;       //  has divide by 2 resistor network to V battery
-     const int Cal_factor=118;    // set at 100 to start, then modify to get exact battery voltage as required. 
+                                  //NOTE: ADC1 (8 channels, attached to GPIOs 32 - 39),ADC2 is not usable with WiFi https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/adc.html  
+     const int Cal_factor=121;    // set at 121  (for 220K/68k voltage divider. 
     #endif
 
 

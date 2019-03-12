@@ -7,8 +7,9 @@ extern String NameOfThisThrottle;
 extern void OLED_5_line_display(String L1,String L2,String L3,String L4,String L5);
 extern void OLED_5_line_display_p(String L1,String L2,String L3,String L4,String L5);
 extern int BrokerAddr;
-
-
+extern uint8_t Volts_Calibration;
+    long analog_sum;
+extern long ReadADC(int avg);
 
  char receivedChars[numChars];   // an array to store the received data
  boolean newData = false;
@@ -30,6 +31,7 @@ int MSG_content_length(){
 
 extern uint8_t NodeMCUPinD[12];
 extern bool SelectPressed();
+extern int ADC_IN;
 void CheckForSerialInput(){
   String MSGText;
   String MSGText1;
@@ -59,6 +61,8 @@ void CheckForSerialInput(){
     Timestarted=millis();
     FlashTime=millis();
     bool LAMP;
+
+    long cal_input;
   // test to see if we can sense if serial cable connected -- Answer no we cannot!! only the Leonardo can  if (Serial){OLED_5_line_display_p("","","","Serial ON","");}else{OLED_5_line_display_p("","","","Serial OFF","");}
   // but we can test the "select" button..  
     while ((millis()<= Timestarted+4000) || UpdateInProgress) {
@@ -125,36 +129,91 @@ void CheckForSerialInput(){
                                  OLED_5_line_display(MSGText1,MSGText2,MSGText3,MSGText4," sss to save or rrr to retry");
                                  Serial.print("Summary: Name of Throttle:");Serial.print(NameOfThisThrottle);
                                  Serial.print(" Broker Addr:");Serial.print(BrokerAddr);Serial.print(" WiFi SSID<");Serial.print(wifiSSID);Serial.print("> Password<");Serial.print(wifiPassword); Serial.println(">");
-                                 Serial.println("Type sss to save, rrr to return to start");
+                                 Serial.println("Type sss to save, rrr to return to start ccc to add cal ");
                           
                           break;
                                 
                           case 5:
                                  Serial.print("Summary: Name of Throttle:");Serial.print(NameOfThisThrottle);
                                  Serial.print(" Broker Addr:");Serial.print(BrokerAddr);Serial.print(" WiFi SSID<");Serial.print(wifiSSID);Serial.print("> Password<");Serial.print(wifiPassword); Serial.println(">");
-                                 if (TestData=="sss\0"){
+                                  
+                           if (TestData=="sss\0"){
                                     //display.clear(); display.drawString(64, 32, "EEPROM Updated"); display.display();
                                     Serial.println("I will now save this data and continue");
                                     WriteWiFiSettings();
                                     UpdateInProgress=false;
                                     newData = false;SerioLevel=6;
+                                    break;
                                     }
-                             else {
-                              if (TestData=="rrr\0"){ 
+                           if (TestData=="rrr\0"){ 
                                 OLED_5_line_display("Resuming Serial Input","Type in xxx to restart",""," ","");
-                                //display.clear(); display.drawString(64, 46, "Type xxx to resume input"); display.display();
                                 Serial.println("-----------------");Serial.println("---Starting again---");Serial.println(" Type xxx again to re-start sequence");
                                 newData = false;SerioLevel=0;
-                                 }else{Serial.println("Please type 'sss' to save, or 'rrr' to return to start");newData = false;}
-                                  }
-                         
-                          break;
+                                 break;}
+                                 
+                           if (TestData=="ccc\0"){
+                               analog_sum=ReadADC(100); //
+                               MSGText4="Current V batt <";MSGText4+=analog_sum;MSGText4+=">";  
+                                OLED_5_line_display("Starting voltage calibration","Type in actual V as xxx",MSGText4,"","");
+                               
+                                Serial.print(MSGText4);Serial.println(" Type in actual voltage without decimal (xxx)");
+                                newData = false;SerioLevel=8;
+                                 break;
+                                 }
+                           
+                          break; 
 
                           case 6:
                             newData = false;
                             Serial.println("Wait to try reconnect, or turn off to restart with new values");
-
+                            Serial.println("Type sss to save, rrr to return to start");
                           break;
+                          case 8:
+                          if(MSG_content_length()>1) {cal_input= TestData.toInt();} 
+                          if ((cal_input>=200)&&(cal_input<=600)) { // valid input
+                                Serial.print("adjusted Vcal from<");Serial.print(Volts_Calibration);
+                                cal_input=(Volts_Calibration*cal_input)/(analog_sum); // calc as long 1% error on wifi starting
+                                Volts_Calibration= cal_input;// convert to uint8_t
+                                newData = false;
+                                Serial.print("> to <");Serial.print(Volts_Calibration); Serial.println("> ");    }
+                                else {Serial.println("- unchanged calibration factor -"); }
+                            analog_sum=ReadADC(100); //
+                            MSGText4="V Batt <";MSGText4+=analog_sum;MSGText4+=">";  
+                            OLED_5_line_display(MSGText4," In batt measurement cal","","","");
+                               
+                            Serial.println(MSGText4);   
+                            Serial.println("Type 'sss' to save this calibration or 'ccc' to check and repeat");newData = false;SerioLevel=9;
+                           break;
+                           case 9:
+                           if (TestData=="sss\0"){
+                                    //display.clear(); display.drawString(64, 32, "EEPROM Updated"); display.display();
+                                    Serial.println("I will now save this data and continue");
+                                    WriteWiFiSettings();
+                                    UpdateInProgress=false;
+                                    newData = false;SerioLevel=6;
+                                    break;
+                                    }
+                           if (TestData=="rrr\0"){ 
+                                OLED_5_line_display("Resuming Serial Input","Type in xxx to restart",""," ","");
+                                Serial.println("-----------------");Serial.println("---Starting again---");Serial.println(" Type xxx again to re-start sequence");
+                                newData = false;SerioLevel=0;
+                                 break;}
+                            if (TestData=="ccc\0"){ 
+                                  analog_sum=ReadADC(100);
+                                  MSGText4=" Measured <";MSGText4+=analog_sum;MSGText4+="";  
+                                  OLED_5_line_display("Repeating voltage calibration","Type in measured voltage without decimal xxx ",MSGText4," ","");
+                               
+                                Serial.print(MSGText4);Serial.println("> Type in actual voltage without decimal (xxx)");
+                                newData = false;SerioLevel=8;
+                                 break;
+                                 }
+                                 
+                            Serial.println("Please type 'sss' to save, 'ccc' to recheck Batt cal, or 'rrr' to return to start");newData = false;
+                                  
+                            newData = false;
+                            Serial.println("Non valid input");
+                           break;
+                           
                           default:
                             newData = false;
                             Serial.println("Not Understood");  
@@ -204,6 +263,7 @@ void WriteWiFiSettings(){
     writeString(passwordEEPROMLocation,wifiPassword);delay(10);
     writeString(ThrottleNameEEPROMLocation,NameOfThisThrottle);delay(10);
     EEPROM.write(BrokerEEPROMLocation,BrokerAddr);delay(10);
+    EEPROM.write(CalEEPROMLocation, Volts_Calibration);
     EEPROM.commit();delay(100);
 }
 
