@@ -10,7 +10,9 @@
  const int ssidEEPROMLocation = 10;
  const int passwordEEPROMLocation = ssidEEPROMLocation+numChars;
  const int ThrottleNameEEPROMLocation = passwordEEPROMLocation+numChars;
- const int EEPROM_Size = 200; 
+ const int CalEEPROMLocation=ThrottleNameEEPROMLocation+numChars;
+ const int EndofEEprom = CalEEPROMLocation+10; // some spare room
+ const int EEPROM_Size = EndofEEprom+1; 
 
  
  int MSG_content_length();

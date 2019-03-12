@@ -1,4 +1,5 @@
- 
+#ifndef Secrets_h
+  #define Secrets_h 
  #define SSID_RR "Router Name"
        #define PASS_RR "Password for Router"
        int BrokerAddrDefault = 11; // sub ip of your MQTT broker (NOT 0 or 255); 
@@ -25,6 +26,10 @@
      const int UpButton = D6;     // the designation of the up pushbutton pin
      const int DownButton = D7;     // the designation o0 the down pushbutton pin
      const int LeftButton = D8  ;    // left NOT used yet 
+     const int ADC_IN = 0 ;       //  pin A 0 on esp8266 has divide by 2 resistor network to V battery
+                                  //NOTE: ADC1 (8 channels, attached to GPIOs 32 - 39),ADC2 is not usable with WiFi https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/adc.html  
+     const int Cal_factor=64;    // set at 64 ?? (for 220K/47k voltage divider. 
+
     #endif
 
     #ifdef ESP32  // on esp pins are strictly Px = pin x not Dx = 'something strange' as on the ESP8266 
@@ -43,6 +48,10 @@
      const int UpButton = 18;     // P25 is the number of the up pushbutton pin
      const int DownButton =17;     // P26 is the number of the down pushbutton pin
      const int LeftButton = 16;    // P27 is the number of the left pushbutton pin NOT used yet 
+
+     const int ADC_IN = 35;       //  has divide by 2 resistor network to V battery
+                                  //NOTE: ADC1 (8 channels, attached to GPIOs 32 - 39),ADC2 is not usable with WiFi https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/adc.html  
+     const int Cal_factor=121;    // set at 121  (for 220K/68k voltage divider. 
     #endif
 
 
@@ -67,3 +76,4 @@
   #define NodeMCUPinD[SignalLed] 2 // same as PIN D4!
 
 */
+#endif

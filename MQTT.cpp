@@ -490,7 +490,7 @@ if ((strncmp("rocrail/service/info", topic, 20) == 0)) {
                         _Active=ParseforAttribute("<lc id=\"","active=\"",'\"',payload,Length);
                         //Serial.print (" found<");Serial.print(_Show);Serial.println ("> ");
                         
-                        if ((_Show=="true")&&(_Active=="true")){
+                        if (_Show=="true"){  //was previously if ((_Show=="true")&&(_Active=="true")){
                          // Serial.print (" got here<");Serial.print(_Show);Serial.println ("> ");
                                                     ParsePropsLocoList(ParseIndex,payload,Length);
                                                     // LocoNumbers++;
@@ -619,10 +619,11 @@ if (strlen(Attrib('\"',"<lc id=\"",payload,Length))>=1){
           mins = TIME /60;
           TIME %= 60;
           secs = TIME;
-              // new to cope with non UTC railways!!!
+
+           // new to cope with non UTC railways!!!
           Temp=ParseforAttribute("<clock ","hour=\"",'\"',payload,Length);    
           hrs=Temp.toInt(); // Use hour= (Rocview /local time 
-      
+          
          // Serial.println("Time synch ");
          // printf("Time read: H:M:S - %d:%d:%d   %d new\n",hrs,mins,secs,((LoopTimer-LastSynchTime)*clock_divider/1000));
           Temp =ParseforAttribute("<clock ","divider=\"",'\"',payload,Length);
@@ -809,8 +810,8 @@ void MQTT_ReConnect() {
                     cx2= sprintf (MsgML, "looking for MQTT broker");  // its not strictly necessary, but I wanted to see if the deprecation warning could be avoided. 
                     cx= sprintf (MsgBL, "@ addr: %d:%d:%d:%d", mosquitto[0],mosquitto[1],mosquitto[2],mosquitto[3]);
                     OLED_5_line_display_p("",MsgTL,MsgML,MsgBL,"");
+                    delay(100);
             // Attempt to mqtt connect
-                               delay(100); //added to improve stability
            if (client.connect(ClientName)) {// can advise this node is now connected 
                               // for debug   Serial.print("connected);  Serial.println();
                               PrintTime("---MQTT Connected /n" );

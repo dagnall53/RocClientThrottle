@@ -22,6 +22,8 @@ extern int FunctionTimer[(N_Functions+1)];
 extern int Loco_V_max;
 extern bool UpdatedRotaryMovementUsed;
 bool FunctionActive;
+extern long ReadADC(int avg);
+  long analog_value;
 /*char* Str2Chr(String stringin){
   char* Converted;
   int cx;
@@ -33,17 +35,27 @@ bool FunctionActive;
 }
 */
 void drawRect(void) {
-  
-    display.drawRect(0, 0, 8, 8);
-   
+     display.drawRect(0, 0, 10, 10);
+    //display.drawString(14,0,"STOP"); 
 }
 
 
 void fillRect(void) {
- 
-    display.fillRect(0,0,8,8);
-    
+     display.fillRect(0,0,10,10);
+   // display.drawString(14,0,"GO"); 
   }
+
+void DrawBattery(long Voltsx100){
+  int H_shift, V_shift;
+             //H_shift=15;V_shift=0;  // H Shift to 15 if using words for Power on/off in fill and draw rect functions
+    H_shift=0;V_shift=0; 
+    display.drawRect(H_shift+15,V_shift+0, 17, 10);
+    display.fillRect(H_shift+32,V_shift+3,2, 4);
+    if (Voltsx100>=370){display.fillRect(H_shift+16,V_shift+1,5,8);}
+    if (Voltsx100>=380){display.fillRect(H_shift+21,V_shift+1,5,8);}
+    if (Voltsx100>=390){display.fillRect(H_shift+26,V_shift+1,5,8);}
+  }
+      
 int getQuality() { //https://stackoverflow.com/questions/15797920/how-to-convert-wifi-signal-strength-from-quality-percent-to-rssi-dbm
   if (WiFi.status() != WL_CONNECTED)
     return -1;
@@ -85,29 +97,7 @@ void SignalStrengthBar( int32_t rssi) { //https://stackoverflow.com/questions/15
   if (rssi >= -80){display.drawLine(PosX+2,PosY+8,PosX+2,PosY+10);}
 
  }
-/*
-void SignalStrengthBar( int32_t rssi) { 
-  int PosX,PosY,Height,Width,Bar;
-  // rssi -90 is just about dropout..
-  // rssi -40 is a great signal
-  Width=8;
-  Height=8;
-  PosX=120;  // position left right  max = 128
-  PosY=0; // top left position up / down max 64
 
-  if (rssi >= -40) {Bar=Height;}
-  if (rssi >= -45) {Bar=7;}
-  if (rssi <= -50){Bar=6;}
-  if (rssi <= -55){Bar=5;}
-  if (rssi <= -60){Bar=4;}
-  if (rssi <= -65){Bar=3;}
-  if (rssi <= -70){Bar=2;}
-  if (rssi <= -75){Bar=1;}
-  if (rssi <= -90){Bar=0;}
-  PosY=Height-PosY;
-  display.fillRect(PosX,PosY-Bar,Width,Bar+Height-PosY);
- }
-*/
 
 void drawImageDemo() {
     // see http://blog.squix.org/2015/05/esp8266-nodemcu-how-to-create-xbm.html
@@ -163,23 +153,15 @@ void Do_Function(int locoindex,int fnindex){
   // initially only f0 is toggle but now checks if timer is not zero
                 FunctionState[fnindex]=!FunctionState[fnindex];
                 Send_function_command(locoindex,fnindex,!FunctionState[fnindex]);
-  /*
-  if (FunctionTimer[fnindex]<=0) {   // toggle
-                FunctionState[fnindex]=!FunctionState[fnindex];
-                Send_function_command(locoindex,fnindex,!FunctionState[fnindex]);
-                FunctionActive=false;}
-  else{FunctionState[fnindex]=true;
-      Send_function_command(locoindex,fnindex,false);
-      FunctionActive=true;
-      }
-      */
 }
 
 extern void Picture();
 extern bool PowerON;
+extern uint8_t Volts_Calibration;
+
 void DoDisplay(int MenuLevel){
      //display.clear;
-boolean Display3;
+  boolean Display3;
      Display3=false;
   String SpeedIndexString = String(speedindex);
   String FnIndexString= String(fnindex);
@@ -187,7 +169,14 @@ boolean Display3;
   String TopMessage = "Select Loco";
   String BottomMessage = "Selected:";
   String MSGText;
-  
+  char MsgTextTime[32];
+  extern char MsgTextBattVolts[32];
+  extern void BatteryDisplay(int avg);
+  int cx;
+
+ // long BatteryVx100;
+ // int j,BattDec,BattInt;
+  extern uint32_t DisplayTimer;
   BottomMessage += locoindex+1;
   BottomMessage += " of ";
   BottomMessage += (LocoNumbers);
@@ -201,24 +190,32 @@ boolean Display3;
    //MSGText="";MSGText+=WiFi.RSSI();
    //MSGText=getQuality(); MSGText+="%";
    //Bar(getQuality()); // draw wifi bar 
-   display.drawString(115,10,MSGText); // write wifi quality top right, under bar
-  
+   //display.drawString(115,10,MSGText); // write wifi quality top right, under bar
+
   //Rocrail Power Status Indicator
   if (PowerON) {fillRect();}else{drawRect();}
   
   display.setFont(ArialMT_Plain_10);
-  //Time display //There must be a better way to format this!!!
-  if(secs>=10){
-        if(mins>=10){
-                     MSGText="";MSGText+=hrs;MSGText+=":"; MSGText+=mins; MSGText+=":"; MSGText+=secs;}else{
-                     MSGText="";MSGText+=hrs;MSGText+=":0"; MSGText+=mins; MSGText+=":"; MSGText+=secs;}
-                     }else{
-        if(mins>=10){
-                     MSGText="";MSGText+=hrs;MSGText+=":"; MSGText+=mins; MSGText+=":0"; MSGText+=secs;}else{
-                     MSGText="";MSGText+=hrs;MSGText+=":0"; MSGText+=mins; MSGText+=":0"; MSGText+=secs;}
-                      }
-
-  display.drawString(64,0,MSGText);  // adds time display
+  MSGText="";
+ 
+  //Digital Time display 
+if ((hrs==0)&&(mins==0)){//not Synchronised yet..
+  cx=sprintf(MsgTextTime,"--");
+   }
+   else {cx=sprintf(MsgTextTime,"%02d:%02d:%02d",hrs,mins,secs);
+         }
+  display.drawString(80,0,MsgTextTime);  // adds time display                  
+         
+//add battery display
+  /*   if (millis()>=DisplayTimer){
+              BatteryDisplay(10); 
+              DisplayTimer=millis()+1000;
+              }
+    display.drawString(20,0,MsgTextBattVolts); // actual value display
+   */
+    DrawBattery(ReadADC(10));
+// battery display
+  
 
   switch (MenuLevel){
   
