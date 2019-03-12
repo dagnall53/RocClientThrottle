@@ -30,22 +30,26 @@ A quick, short press of the select button then moves from Functions back to Sele
 The code is designed by default to use the NodeMCU / Wemos OLED + 18650 battery +4 way switch board. 
 With this board, Press "right" (Away from the OLED) to scroll through the menu levels, Pressing the button "in" is used for the short and long presses. 
 Pressing "Left" at any time on this hardware will reboot the code. Do not blame me, the switch is hardwired to reset!. 
-The code also works nicely with the WiFi Bluetooth Battery Esp32 0.96 Inch OLED board, but you will have to add connections to an external rotary switch. 
+The code also works nicely with the WiFi Bluetooth Battery Esp32 0.96 Inch OLED board, but you will have to add connections to an external rotary switch.   
 (All connections needed for the OLED, Rotary Switch and 4 way or 5 way switches are listed in the Secrets.h file).
+
+The Battery monitor needs a resistor voltage divider from battery +v to be added to the boards: For theESP32 boards, use 220k/68k and use Pin 36 as the analog input. For ESP 8266, use 220k/47k and ue A0. A calibration adjustment sequence has been added to the Serial input used for modifying the WiFi parameters that allows the calibration factors to me adjusted to try and get good accuracy. - But the ESP ADC are not particularly accurate, and I have seen changes depending on if the device is transmitting, so do not rely on the ADC for anything critical.  
 
 
 ## Select Loco 
 Up and Down buttons (or the Rotary switch) can be used to select which loco to control. 
-A small display at the bottom of the screen shoows how many locos are available.
+Short press of the select switch then changes to speed control. (very) Long press of the select switch toggles the Rocrail power on/off.
+A small display at the bottom of the screen shows how many locos are available.
 
 ## Speed Control 
 The Throttle should pick up any speed changes made by Rocrail. If you change the speed, Rocrail will change the Loco Speed. 
+Short press of the select switch then changes to Functions control.
 If you LongPress the select button, the speed will immediately be dropped to 0.
 The Rotary switch uses knowledge of the V_Max set in the rocrail loco table to modify how the speed changes. This should give about one and a half turns from 0 to full speed. 
-Up and down buttons add or subtract 5 to the speed.
+Up and down buttons add or subtract 5 to the speed.  
 
 ## Functions 
-When change to the function view, the throttle requests Function settings from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.
+When change to the function view, the throttle requests Function settings from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.  Long press of the select switch then toggles each function. Short press of the select switch then changes to Loco select.
 
 ## Setting WiFi name, password, etc.
 When first turned on, the throttle waits 3 seconds to allow you to enter "xxx" via a serial port. 
@@ -65,14 +69,15 @@ Session: Serial Line (the serial port you use) Speed(115200) Connection type "se
 Then Terminal: Set the "Answerback to ^E " to "xxx^M" (without inverted commas!!), 
 Local Echo "on", Local Line editing "on". Implicit CR with LF "ON" , Implicit LF with CR "ON" 
 ....Then go Back to Session and "SAVE" the session with a name you chose. (Very important as otherwise the terminal answerback stuff will not be saved!)
+From V 31 there is an additional option {'ccc'} instead of {'sss'} at the final stage of this sequence will allow entry of the actual battery voltage (using three digits and NO Decimal) this is then used to improve the internal ADC calibration. The final cal factor is saved in EEPROM, so this should only need to be done once. 
+
 
 Now, turn on the throttle, and connect to PC. -- do not worry that it starts up fully and logs in etc.
 Open PuTTY, select the session we saved before, and press "Open". 
-For some reason, this seems to initiate a reset on the board and then PuTTY sends the magic xxx(cr) which immmediately gets us into the "SSID select" etc, with NO waiting!
+For some reason, this seems to initiate a reset on the board and then PuTTY sends the magic xxx(cr) which immmediately gets us into the "SSID select" etc, with NO waiting!  - But I have found that sometimes the inuts from PuTTY do not seem to be recieved by the booards, so watch the results on screen. The Arduino Serial Terminal seems more reliable for me. 
 
 Note: For some reason this setup method does not work the very first time after the board has been flashed, so you need to power down and restart after a programming via Arduino, otherwise it works well. 
 
-It works so well I may reduce the waiting time in any later code updates!
 
 ## Rocrail Version
 Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops command to itterate all
@@ -80,7 +85,8 @@ Needs version after: 13870 2018-04-17 07:47:28 +0200 model: extended the lcprops
 ## Notes
 To get xbm images working with the <SSD1306Wire.h>  //https://github.com/ThingPulse/esp8266-oled-ssd1306 it is essential to download and use GIMP https://www.gimp.org/downloads/ Load your image, then export as XBM. None of the simpler LCD image tools correctly format for the XBM format and all I tested had the bit order wrong for the code. Thanks to Jan Vanderborden for directing me in the direction of a solution! 
 
-Ass noted at the start.. Its very important to increase the size that the MQTT interface can use: 
+## FINALLY - Modify PUBSUBClient.h ! 
+As noted at the start.. Its very important to increase the size that the MQTT interface can use: 
 // put this in pubsubclient.h in your arduino/libraries/PubSubClint/src 
 #define MQTT_MAX_PACKET_SIZE 10000   // lclist is LONG...!
 
