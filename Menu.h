@@ -34,28 +34,29 @@ extern long ReadADC(int avg);
    return Converted;
 }
 */
+//
 void drawRect(void) {
-     display.drawRect(0, 0, 10, 10);
-    //display.drawString(14,0,"STOP"); 
-}
-
+  display.drawRect(0, 0, 6, 6);
+  //display.drawString(14,0,"STOP"); 
+  }
 
 void fillRect(void) {
-     display.fillRect(0,0,10,10);
-   // display.drawString(14,0,"GO"); 
+  display.fillRect(0,0,6,6);
+  // display.drawString(14,0,"GO"); 
   }
 
 void DrawBattery(long Voltsx100){
-  int H_shift, V_shift;
-             //H_shift=15;V_shift=0;  // H Shift to 15 if using words for Power on/off in fill and draw rect functions
-    H_shift=0;V_shift=0; 
-    display.drawRect(H_shift+15,V_shift+0, 17, 10);
-    display.fillRect(H_shift+32,V_shift+3,2, 4);
-    if (Voltsx100>=370){display.fillRect(H_shift+16,V_shift+1,5,8);}
-    if (Voltsx100>=380){display.fillRect(H_shift+21,V_shift+1,5,8);}
-    if (Voltsx100>=390){display.fillRect(H_shift+26,V_shift+1,5,8);}
-  }
-      
+int H_shift, V_shift;
+H_shift=0;V_shift=0; 
+display.drawRect(H_shift+11,V_shift+0, 17, 6); 
+display.fillRect(H_shift+28,V_shift+2,2, 2);
+if (Voltsx100>=320){display.fillRect(H_shift+12,V_shift+1,5,4);} 
+if (Voltsx100>=343){display.fillRect(H_shift+15,V_shift+1,5,4);} 
+if (Voltsx100>=366){display.fillRect(H_shift+18,V_shift+1,5,4);} 
+if (Voltsx100>=390){display.fillRect(H_shift+22,V_shift+1,5,4);} 
+}
+
+     
 int getQuality() { //https://stackoverflow.com/questions/15797920/how-to-convert-wifi-signal-strength-from-quality-percent-to-rssi-dbm
   if (WiFi.status() != WL_CONNECTED)
     return -1;
@@ -204,7 +205,7 @@ if ((hrs==0)&&(mins==0)){//not Synchronised yet..
    }
    else {cx=sprintf(MsgTextTime,"%02d:%02d:%02d",hrs,mins,secs);
          }
-  display.drawString(80,0,MsgTextTime);  // adds time display                  
+  display.drawString(65,0,MsgTextTime);  // adds time display                  
          
 //add battery display
   /*   if (millis()>=DisplayTimer){
