@@ -559,16 +559,16 @@ if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){
              }
    
 // format #3
-MSG="<lc id=\"";
-//if ((!Message_Decoded)&&(strlen(Attrib('\"',MSG,payload,Length))>=1)){  
+MSG="<lc ";
+//if ((!Message_Decoded)&& (ThisID==LOCO_id[locoindex].c_str()) ){  
   if ((strlen(Attrib('\"',MSG,payload,Length))>=1)){  
-              LocoIDForFnChanged=Attrib('\"',MSG,payload,Length);
-              if (LocoIDForFnChanged==LOCO_id[locoindex].c_str()){
+              //LocoIDForFnChanged=Attrib('\"',MSG,payload,Length);
+              if (ThisID==LOCO_id[locoindex].c_str()){
                 ThisSpeed=Attrib('\"',"V=\"",payload,Length);
                   if(strlen(Attrib('\"',"dir=\"false\"",payload,Length))>=1){
                                              speedindex= -ThisSpeed.toInt();}
                                         else {speedindex= ThisSpeed.toInt();}
-                FN_state_string=ParseforAttribute("<lc id=\"","fn=\"",'\"',payload,Length);  
+                FN_state_string=ParseforAttribute("<lc ","fn=\"",'\"',payload,Length);  
                       if (FN_state_string=="true"){FN_attribute=true;}else{FN_attribute=false;}
                       FunctionState[0]=FN_attribute;
                       FunctionStateKnown[0]=true;
