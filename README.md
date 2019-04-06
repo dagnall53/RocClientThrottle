@@ -33,7 +33,7 @@ Pressing "Left" at any time on this hardware will reboot the code. Do not blame 
 The code also works nicely with the WiFi Bluetooth Battery Esp32 0.96 Inch OLED board, but you will have to add connections to an external rotary switch.   
 (All connections needed for the OLED, Rotary Switch and 4 way or 5 way switches are listed in the Secrets.h file).
 
-The Battery monitor needs a resistor voltage divider from battery +v to be added to the boards: For theESP32 boards, use 220k/68k and use Pin 36 as the analog input. For ESP 8266, use 220k/47k and ue A0. A calibration adjustment sequence has been added to the Serial input used for modifying the WiFi parameters that allows the calibration factors to me adjusted to try and get good accuracy. - But the ESP ADC are not particularly accurate, and I have seen changes depending on if the device is transmitting, so do not rely on the ADC for anything critical.  
+The Battery monitor needs a resistor voltage divider from battery +v to be added to the boards: For the ESP32 boards, use 220k/68k and use Pin 35 as the analog input. For ESP 8266, use 220k/47k and use A0. A calibration adjustment sequence has been added to the Serial input used for modifying the WiFi parameters that allows the calibration factors to me adjusted to try and get good accuracy. - But the ESP ADC are not particularly accurate, and I have seen changes depending on if the device is transmitting, so do not rely on the ADC for anything critical. 
 
 
 ## Select Loco 
