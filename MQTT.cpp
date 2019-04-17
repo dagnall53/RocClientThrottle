@@ -827,10 +827,10 @@ void MQTT_ReConnect() {
                                            //Serial.println("~ failed to find MQTT broker ");
                                            connects=connects+1;  // Count how many times we do this. So that a single miss to connect to the broker does not immediately trigger broker address incrementation
                                           if (connects>=5){  mosquitto[3] = mosquitto[3]+1; }
-                                                  if (mosquitto[3]>=50){mosquitto[3]=3;}
-                                                 // Serial.print(" trying MQTT <");Serial.print(mosquitto[3]);Serial.println("> ");  
+                                                  if (mosquitto[3]>=75){mosquitto[3]=3;}
+                                                  Serial.print(" trying MQTT <");Serial.print(mosquitto[3]);Serial.println("> ");  
                                            client.setServer(mosquitto, 1883);   // Hard set port at 1833
-                                           delay(100);
+                                           delay(200);
                                            digitalWrite (On_Board_LED , HIGH) ; ///   turn ON
                                            delay(100);
                                            digitalWrite (On_Board_LED , LOW) ; ///   turn OFF

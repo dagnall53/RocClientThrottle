@@ -264,7 +264,7 @@ void ConnectToWifi(String WiSSID, String Password, int Broker){
    Serial.print(F("--------Mosquitto will first try to connect to:"));
    Serial.println(mosquitto);
    MQTT_ReConnect();  
-   //if you get here you should have connected to the MQTT broker but MQTT_ReConnect() in MQTT includes code to search addr 3 to 50 if its not at the expected address
+   //if you get here you should have connected to the MQTT broker but MQTT_ReConnect() in MQTT includes code to search addr 3 to 75 if its not at the expected address
     Serial.println(F("----------------MQTT NOW setup ----------------")); 
     WIFI_SETUP=true;
   _SetupOTA(NameOfThisThrottle); // now we  have set the ota update with nickname ThrottleName 
