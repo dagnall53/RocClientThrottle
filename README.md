@@ -52,6 +52,8 @@ Up and down buttons add or subtract 5 to the speed.
 When change to the function view, the throttle requests Function settings from Rocrail and uses these to display the Function names, and to decide if the Function is momentary or toggled. Function states should be mirrored if any changes are made by other throttles, but may not be immediately in synch until some changes have been made.  Long press of the select switch then toggles each function. Short press of the select switch then changes to Loco select.
 
 ## Setting WiFi name, password, etc.
+(V35) you can set your Router name etc in the secrets.h file, or.. 
+
 When first turned on, the throttle waits 3 seconds to allow you to enter "xxx" via a serial port. 
 This makes the throttle enter a mode where you can change the saved WIFI name and password, and other settings.
 If you have connected the Throttle to a terminal emulator set to speed 115200 baud, you should see text like this as the throttle turns on:  
