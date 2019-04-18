@@ -1,4 +1,4 @@
-#define ver 33
+#define ver 36
 #include "Secrets.h"
 #define Rotary_Switch  // comment this out if not using the additional Rotary_Switch switch 
 #ifdef Rotary_Switch
@@ -156,6 +156,12 @@ void ConnectionPrint() {
   Serial.println(F("-----------------------------------------------------------"));
   Serial.print (F("---------- Connected to SSID:"));
   Serial.print(WiFi.SSID());
+  Serial.print(" / ");Serial.print(WiFi.psk());// added as part of an investigation into wifo connection
+  Serial.print(F(" (EEPROMSet: SSID:"));// added as part of an investigation into wifo connection
+  Serial.print(wifiSSID);              // added as part of an investigation into wifo connection
+  Serial.print(F(" PW:"));              // added as part of an investigation into wifo connection
+  Serial.print(wifiPassword);          // added as part of an investigation into wifo connection
+  Serial.print(") ");                  // added as part of an investigation into wifo connection
   Serial.print(F("  IP:"));
   Serial.println(WiFi.localIP());
  }
@@ -264,7 +270,7 @@ void ConnectToWifi(String WiSSID, String Password, int Broker){
    Serial.print(F("--------Mosquitto will first try to connect to:"));
    Serial.println(mosquitto);
    MQTT_ReConnect();  
-   //if you get here you should have connected to the MQTT broker but MQTT_ReConnect() in MQTT includes code to search addr 3 to 50 if its not at the expected address
+   //if you get here you should have connected to the MQTT broker but MQTT_ReConnect() in MQTT includes code to search addr 3 to 75 if its not at the expected address
     Serial.println(F("----------------MQTT NOW setup ----------------")); 
     WIFI_SETUP=true;
   _SetupOTA(NameOfThisThrottle); // now we  have set the ota update with nickname ThrottleName 
@@ -313,13 +319,25 @@ void setup() {
   EEPROM.begin(EEPROM_Size); //Initialize EEPROM
   UsedDefaults=false;
   // TestFillEEPROM(72); // used for test only to check read eeprom etc functions
-  BrokerAddr=BrokerAddrDefault;
-  wifiSSID=read_String(ssidEEPROMLocation);
-  Volts_Calibration=EEPROM.read(CalEEPROMLocation);
-  if (Volts_Calibration==0){Volts_Calibration=91;}
-  wifiPassword=read_String(passwordEEPROMLocation);
-  BrokerAddr=EEPROM.read(BrokerEEPROMLocation);
-  NameOfThisThrottle=read_String(ThrottleNameEEPROMLocation);
+      wifiSSID = read_String(ssidEEPROMLocation);
+      wifiPassword = read_String(passwordEEPROMLocation);
+      BrokerAddr = EEPROM.read(BrokerEEPROMLocation);
+      NameOfThisThrottle = read_String(ThrottleNameEEPROMLocation);
+  if ( (SSID_RR != "Router Name") && (wifiSSID == "default") ){
+      Serial.println("Using Secrets.h settings"); 
+      wifiSSID = "default"; // just for the eeprom setting... so we can change if we want
+      wifiPassword = PASS_RR;
+      BrokerAddr = BrokerAddrDefault;
+      NameOfThisThrottle = ThrottleNameDefault;
+      WriteWiFiSettings();
+      wifiSSID = SSID_RR; // but use the Secrets.h value 
+      }
+ 
+
+       
+      Volts_Calibration = EEPROM.read(CalEEPROMLocation);
+  
+  if (Volts_Calibration == 0) {Volts_Calibration = 91;}
   Serial.print(" Broker addr:");Serial.println(BrokerAddr);
   Serial.print(" Battery Volts_Calibration Factor:");Serial.println(Volts_Calibration);
   if ((wifiSSID=="")||(wifiSSID.length()>=90)){wifiSSID=SSID_RR;UsedDefaults=true;Serial.println("Using Default SSID");}         // if empty, or if bigger than 90 use the secrets default
@@ -540,7 +558,7 @@ void loop() {
   LoopTimer = millis(); // idea is to use LoopTimer instead of millis to ensure synchronous behaviour in loop
   ClockUpdate();
    
-  recvWithEndMarker();
+  //recvWithEndMarker();  // why???
   showNewData();
 
   UpButtonButton.read(); // start the JC button functions

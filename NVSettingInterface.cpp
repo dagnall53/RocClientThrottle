@@ -11,27 +11,29 @@ extern uint8_t Volts_Calibration;
     long analog_sum;
 extern long ReadADC(int avg);
 
- char receivedChars[numChars];   // an array to store the received data
+ //char receivedChars[numChars];   // an array to store the received data
+ String SettingsText;  //Revised code that allows me to get the serial data one character at a time..
  boolean newData = false;
  char rx_byte;  // to try serial input
  int SerioLevel; // for the serial interface for updates
 
-int MSG_content_length(){
-  int Length;
-  int i;
-  bool EOM; 
-  Length =0;i=0;
-  EOM=false;
-  while (!EOM && i<=numChars) {
-       if (receivedChars[i] == 0){EOM=true;Length=i;}
-       i++;
-       }
-  return Length;
-}
+//int MSG_content_length(){
+//  int Length;
+//  int i;
+//  bool EOM; 
+//  Length =0;i=0;
+//  EOM=false;
+//  while (!EOM && i<=numChars) {
+//       if (receivedChars[i] == 0){EOM=true;Length=i;}
+//       i++;
+//       }
+//  return Length;
+//}
 
 extern uint8_t NodeMCUPinD[12];
 extern bool SelectPressed();
 extern int ADC_IN;
+
 void CheckForSerialInput(){
   String MSGText;
   String MSGText1;
@@ -49,7 +51,7 @@ void CheckForSerialInput(){
     if (wifiSSID=="Router Name"){UpdateInProgress=true;Serial.println(" Forcing request for new entries as Default Router name has not been set in Secrets.h");
                                     Serial.println("--Serial port update Started--");
                                     Serial.print("  SSID currently is <");Serial.print(wifiSSID);Serial.print("> Password is <");Serial.print(wifiPassword); Serial.println(">");
-                                    Serial.println("Type in New SSID");newData = false;SerioLevel=1;
+                                    Serial.println("Type in New SSID");SerioLevel=1;newData = false; SettingsText = ""; 
                                     OLED_5_line_display("EEPROM settings required","Use Serial port @115200","To enter WiFi details","Press Select"," to start");
                                  }else{
                                     Serial.println("");
@@ -57,6 +59,7 @@ void CheckForSerialInput(){
                                     Serial.println(F("-- Use 'Newline' OR 'CR' to end input line  --"));
                                     Serial.println(F("Starting~~~~~~~~~~~~~~~~~~~~~~~~waiting~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Timeout "));
                                     delay(10);Serial.print(CtrlE);delay(100); OLED_5_line_display_p("","","Pausing for Serial I/O","type 'xxx' to start","or 'Select'");
+                                    newData = false; SettingsText = ""; 
                                        }
     Timestarted=millis();
     FlashTime=millis();
@@ -69,11 +72,14 @@ void CheckForSerialInput(){
        ///   toggle  signal lamp
       if ((millis()>= FlashTime)&& (!UpdateInProgress)) { LAMP=!LAMP; FlashTime=millis()+50; digitalWrite (NodeMCUPinD[0] , LAMP) ;Serial.print("~");}
       
-      delay(1); // Allow esp to process other events .. may not be needed, but here to be safe..                                      
+      delay(10); // Allow esp to process other events .. seems to be needed,                                   
       recvWithEndMarker();
       if ( (SelectPressed()&& (SerioLevel==0) )||(newData == true) )
              {
-                          if (newData == true){TestData=receivedChars;}
+                          if (newData == true){
+                            //TestData=receivedChars;
+                            TestData=SettingsText; // new input method to capture one character at a time?
+                            }
                           //Serial.print("Data <");Serial.print(TestData);Serial.println(">"); 
                           //("> Looking for {");Serial.print(LookFor);Serial.println("}");
                           switch (SerioLevel){ 
@@ -85,10 +91,10 @@ void CheckForSerialInput(){
                                     Serial.println("-");
                                     Serial.println("--Update EEPROM Started--");
                                     Serial.print("  SSID currently is <");Serial.print(wifiSSID);Serial.println(">"); 
-                                    Serial.println("Type in New SSID");newData = false;SerioLevel=1;
+                                    Serial.println("Type in New SSID");newData = false; SettingsText = ""; SerioLevel=1;
                                      }
                           break;
-                          case 1: if(MSG_content_length()>1) {wifiSSID=receivedChars;} newData = false;SerioLevel=2;
+                          case 1: if ( TestData.length()>=2) {wifiSSID=TestData;} newData = false; SettingsText = ""; SerioLevel=2;
                           MSGText1="SSID     <";
                           MSGText1+=wifiSSID;
                           MSGText1+=">";
@@ -100,7 +106,7 @@ void CheckForSerialInput(){
                           break;
 
                           case 2:   
-                                 if(MSG_content_length()>1) {wifiPassword=receivedChars;} newData = false;SerioLevel=3;
+                                 if ( TestData.length()>=2) {wifiPassword=TestData;} newData = false; SettingsText = ""; SerioLevel=3;
                                  MSGText2="Password <";
                                  MSGText2+=wifiPassword;
                                  MSGText2+=">";
@@ -110,7 +116,7 @@ void CheckForSerialInput(){
                                     
                           break;
                           case 3:
-                                 if(MSG_content_length()>1) {BrokerAddr= TestData.toInt();} newData = false;SerioLevel=4;
+                                 if ( TestData.length()>=2) {BrokerAddr= TestData.toInt();} newData = false; SettingsText = ""; SerioLevel=4;
                                  MSGText3="Broker Addr<";
                                  MSGText3+=BrokerAddr;
                                  MSGText3+=">";
@@ -122,7 +128,7 @@ void CheckForSerialInput(){
                           
                           break;
                           case 4:
-                                 if(MSG_content_length()>1) {NameOfThisThrottle=receivedChars;} newData = false;SerioLevel=5;
+                                 if ( TestData.length()>=2) {NameOfThisThrottle=TestData;} newData = false; SettingsText = ""; SerioLevel=5;
                                  MSGText4="Name<";
                                  MSGText4+=NameOfThisThrottle;
                                  MSGText4+=">";
@@ -142,13 +148,13 @@ void CheckForSerialInput(){
                                     Serial.println("I will now save this data and continue");
                                     WriteWiFiSettings();
                                     UpdateInProgress=false;
-                                    newData = false;SerioLevel=6;
+                                    newData = false; SettingsText = ""; SerioLevel=6;
                                     break;
                                     }
                            if (TestData=="rrr\0"){ 
                                 OLED_5_line_display("Resuming Serial Input","Type in xxx to restart",""," ","");
                                 Serial.println("-----------------");Serial.println("---Starting again---");Serial.println(" Type xxx again to re-start sequence");
-                                newData = false;SerioLevel=0;
+                                newData = false; SettingsText = ""; SerioLevel=0;
                                  break;}
                                  
                            if (TestData=="ccc\0"){
@@ -157,24 +163,24 @@ void CheckForSerialInput(){
                                 OLED_5_line_display("Starting voltage calibration","Type in actual V as xxx",MSGText4,"","");
                                
                                 Serial.print(MSGText4);Serial.println(" Type in actual voltage without decimal (xxx)");
-                                newData = false;SerioLevel=8;
+                                newData = false; SettingsText = ""; SerioLevel=8;
                                  break;
                                  }
                            
                           break; 
 
                           case 6:
-                            newData = false;
+                            newData = false; SettingsText = ""; 
                             Serial.println("Wait to try reconnect, or turn off to restart with new values");
                             Serial.println("Type sss to save, rrr to return to start");
                           break;
                           case 8:
-                          if(MSG_content_length()>1) {cal_input= TestData.toInt();} 
+                          if ( TestData.length()>=2) {cal_input= TestData.toInt();} 
                           if ((cal_input>=200)&&(cal_input<=600)) { // valid input
                                 Serial.print("adjusted Vcal from<");Serial.print(Volts_Calibration);
                                 cal_input=(Volts_Calibration*cal_input)/(analog_sum); // calc as long 1% error on wifi starting
                                 Volts_Calibration= cal_input;// convert to uint8_t
-                                newData = false;
+                                newData = false; SettingsText = ""; 
                                 Serial.print("> to <");Serial.print(Volts_Calibration); Serial.println("> ");    }
                                 else {Serial.println("- unchanged calibration factor -"); }
                             analog_sum=ReadADC(100); //
@@ -182,7 +188,7 @@ void CheckForSerialInput(){
                             OLED_5_line_display(MSGText4," In batt measurement cal","","","");
                                
                             Serial.println(MSGText4);   
-                            Serial.println("Type 'sss' to save this calibration or 'ccc' to check and repeat");newData = false;SerioLevel=9;
+                            Serial.println("Type 'sss' to save this calibration or 'ccc' to check and repeat");newData = false; SettingsText = ""; SerioLevel=9;
                            break;
                            case 9:
                            if (TestData=="sss\0"){
@@ -190,13 +196,13 @@ void CheckForSerialInput(){
                                     Serial.println("I will now save this data and continue");
                                     WriteWiFiSettings();
                                     UpdateInProgress=false;
-                                    newData = false;SerioLevel=6;
+                                    newData = false; SettingsText = ""; SerioLevel=6;
                                     break;
                                     }
                            if (TestData=="rrr\0"){ 
                                 OLED_5_line_display("Resuming Serial Input","Type in xxx to restart",""," ","");
                                 Serial.println("-----------------");Serial.println("---Starting again---");Serial.println(" Type xxx again to re-start sequence");
-                                newData = false;SerioLevel=0;
+                                newData = false; SettingsText = ""; SerioLevel=0;
                                  break;}
                             if (TestData=="ccc\0"){ 
                                   analog_sum=ReadADC(100);
@@ -204,18 +210,19 @@ void CheckForSerialInput(){
                                   OLED_5_line_display("Repeating voltage calibration","Type in measured voltage without decimal xxx ",MSGText4," ","");
                                
                                 Serial.print(MSGText4);Serial.println("> Type in actual voltage without decimal (xxx)");
-                                newData = false;SerioLevel=8;
+                                newData = false; SettingsText = ""; SerioLevel=8;
                                  break;
                                  }
                                  
-                            Serial.println("Please type 'sss' to save, 'ccc' to recheck Batt cal, or 'rrr' to return to start");newData = false;
+                            Serial.println("Please type 'sss' to save, 'ccc' to recheck Batt cal, or 'rrr' to return to start");
+                            newData = false; SettingsText = ""; 
                                   
-                            newData = false;
+                            
                             Serial.println("Non valid input");
                            break;
                            
                           default:
-                            newData = false;
+                            newData = false; SettingsText = ""; 
                             Serial.println("Not Understood");  
                           break; 
                          }
@@ -230,15 +237,20 @@ void recvWithEndMarker() {
     static byte ndx = 0;
     char endMarker = '\n';
     char rc;
-       while (Serial.available() > 0 ) { 
+       while (Serial.available() > 0 ) {
            rc = Serial.read();
            if ((rc != 10)&&(rc != 13) ){ 
-                receivedChars[ndx] = rc;
+                SettingsText+=rc;
+                //receivedChars[ndx] = rc;
+                Serial.print(rc);delay(1);
                 ndx++; 
-                if (ndx >= numChars) { ndx = numChars - 1;} //truncate if too bit to avoid filling up  
+                if (ndx >= numChars) { ndx = numChars - 1;} //truncate if too big to avoid filling up  
                                        }
                                        else { 
-                                         newData = true;receivedChars[ndx] = '\0'; // replace NL/CR with /0 terminator. Mark that new data is available, but do not increment ndx
+                                        Serial.print("<CR>");delay(1);
+                                         newData = true;
+                                         //receivedChars[ndx] = '\0';// replace NL/CR with /0 terminator. Mark that new data is available, but do not increment ndx
+                                         SettingsText+='\0';
                                              }
                                         }ndx = 0; //once all serial data has been processed, reset the ndx pointer
 }
@@ -247,9 +259,11 @@ void showNewData() {
     if (newData == true) {
                 Serial.println(" ");
                 Serial.print("Seen but not understood <");
-                Serial.print(receivedChars);Serial.println(">    ");
+                Serial.print(SettingsText);
+                Serial.println(">    ");
               // to assist debug serial io //Serial.print("Ascii is <"); for (int i=0; i<=(numChars) ;i++) { Serial.print(int(receivedChars[i]));Serial.print("> <");}
-                newData = false;}
+                newData = false; SettingsText = ""; 
+                }
     }
 
 

@@ -15,9 +15,9 @@
  const int EEPROM_Size = EndofEEprom+1; 
 
  
- int MSG_content_length();
+// int MSG_content_length();
  void CheckForSerialInput();
- void recvWithEndMarker(); // Gets data <receivedChars> from serial interface
+ void recvWithEndMarker(); // Gets data and builds up <SettingsText> from serial interface, sets newData=true if CR or LF seen
  void showNewData() ;    // shows recieved (serial) <receivedChars> data on serial terminal, useful for debugging 
  void WriteWiFiSettings();
  void TestFillEEPROM(int d);
