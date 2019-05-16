@@ -319,7 +319,10 @@ switch (MenuLevel){
  break;
  case 1:  // top level
  #ifdef Rotary_Switch
-  if (!UpdatedRotaryMovementUsed) {speedindex=speedindex+(Loco_V_max/15);UpdatedRotaryMovementUsed=true;} // works better to increment with this button  // new
+  if (!UpdatedRotaryMovementUsed) {speedindex=speedindex+(Loco_V_max/15);UpdatedRotaryMovementUsed=true;// works better to increment with this button  // new
+                                   if (abs(speedindex)<=((Loco_V_max/15)-1)){//Serial.printf("Speed up %d delta is %d \n",speedindex,Loco_V_max/15);
+                                                                             if (speedindex!=0){speedindex=0;}   }               
+                                                                                                   } //set to zero if near zero
                            else{speedindex=speedindex+5;}
  #endif                          
  #ifndef Rotary_Switch
@@ -357,7 +360,10 @@ switch (MenuLevel){
  break;
  case 1:  // level 1
   #ifdef Rotary_Switch
-    if (!UpdatedRotaryMovementUsed) {speedindex=speedindex-(Loco_V_max/15);UpdatedRotaryMovementUsed=true;} // works to give increment with this button  // new
+    if (!UpdatedRotaryMovementUsed) {speedindex=speedindex-(Loco_V_max/15);UpdatedRotaryMovementUsed=true;// works to give increment with this button  // new
+                                      if (abs(speedindex)<=((Loco_V_max/15)-1)){//Serial.printf("Speed down %d delta is %d \n",speedindex,Loco_V_max/15); 
+                                                                                if (speedindex!=0){speedindex=0;}   }  
+                                                                                                    } //set to zero if near zero
                            else{speedindex=speedindex-5;} 
   #endif
   #ifndef Rotary_Switch

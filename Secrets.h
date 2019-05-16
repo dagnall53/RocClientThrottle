@@ -48,6 +48,10 @@
      const int UpButton = 18;     // P25 is the number of the up pushbutton pin
      const int DownButton =17;     // P26 is the number of the down pushbutton pin
      const int LeftButton = 16;    // P27 is the number of the left pushbutton pin NOT used yet 
+     const int MembraneA=14;
+     const int MembraneB= 12;
+     const int MembraneC=  13;
+
 
      const int ADC_IN = 35;       //  has divide by 2 resistor network to V battery
                                   //NOTE: ADC1 (8 channels, attached to GPIOs 32 - 39),ADC2 is not usable with WiFi https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/peripherals/adc.html  

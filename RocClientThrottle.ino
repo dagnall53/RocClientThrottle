@@ -1,4 +1,4 @@
-#define ver 35
+#define ver 36
 #include "Secrets.h"
 #define Rotary_Switch  // comment this out if not using the additional Rotary_Switch switch 
 #ifdef Rotary_Switch
@@ -25,8 +25,11 @@ Button DownButtonButton(DownButton);       // Button(pin, dbTime, puEnable, inve
 Button RightButtonButton(RightButton);       // Button(pin, 25ms default, enabled pullup default, default true for invert.
 Button SelectButtonButton(SelectButton);       // 
 Button LeftButtonButton(LeftButton); 
-
-
+#ifdef ESP32
+  Button TopPB(MembraneA); 
+  Button MidPB(MembraneB); 
+  Button BottomPB(MembraneC); 
+#endif
 float analog_FP;
 int batt_calibration; 
 
@@ -93,6 +96,7 @@ bool SelectButtonState = 0;         // variable for reading the pushbutton statu
 bool UpButtonState = 0;         // variable for reading the pushbutton status
 bool DownButtonState = 0;         // variable for reading the pushbutton status
 bool LeftButtonState = 0;         // variable for reading the pushbutton status
+bool TopPB_State,MidPB_State,BottomPB_State; //for membrane
 bool buttonpressed;  
 uint32_t ButtonPressTimer;
 // display and selection stuff
@@ -341,7 +345,14 @@ void setup() {
   RightButtonButton.begin(); // start the JC button functions
  
   LeftButtonButton.begin(); // start the JC button functions
-
+#ifdef ESP32
+  TopPB.begin(); // start the New membrane buttons functions
+  MidPB.begin(); 
+  BottomPB.begin(); 
+#endif
+TopPB_State=false;
+MidPB_State=false;
+BottomPB_State=false; 
   // init the display
 
   connects=0;
@@ -481,6 +492,34 @@ void Do_RotarySW(){
   #endif
 }
 
+
+
+void ReadMembrane (){
+  #ifdef ESP32
+  TopPB.read(); // New membrane buttons functions
+  MidPB.read(); 
+  BottomPB.read(); 
+  #endif
+   }
+
+void DoMembraneActions(){
+   #ifdef ESP32
+   if (TopPB.wasPressed()&& (!TopPB_State)) { // Top PB action is locoindex,fnindex)...???
+                  Do_Function(locoindex,2); TopPB_State=true;}//toot
+   if (TopPB.wasReleased()&& (TopPB_State)) { // 
+                          TopPB_State=false;}//
+                  
+   if (MidPB.wasPressed()&& (!MidPB_State)) { // Top PB action is locoindex,fnindex)...???
+                  Do_Function(locoindex,fnindex); MidPB_State=true;}// whichever is selected
+   if (MidPB.wasReleased()&& (MidPB_State)) { // 
+                          MidPB_State=false;}// 
+
+
+
+   #endif 
+}
+
+
 void Fourwayswitch(){
 if (UpButtonButton.wasPressed()){
      if (Menu_Action_Enabled){ Menu_Action_Enabled=false;
@@ -553,7 +592,8 @@ void loop() {
   RightButtonButton.read(); // start the JC button functions
   SelectButtonButton.read(); // start the JC button functions
   LeftButtonButton.read(); // start the JC button functions
-
+  ReadMembrane(); // includes ifdef 32
+ 
   #ifdef Rotary_Switch
    Do_RotarySW();
     if ((millis()-Encoder_TimeoutAt)>=50){Encoder_Timeout=false;} // sets max click repetition rate for encoder
@@ -573,8 +613,10 @@ void loop() {
 
 
   Fourwayswitch(); // up and down same as rotary rotates...
+  DoMembraneActions();
 
-//Jans Menu idea with just rotary switch
+
+ //Jans Menu idea with just rotary switch
 
 
   if ((MenuLevel==0) && SelectButtonButton.pressedFor(LONG_PRESS)) {
@@ -617,5 +659,3 @@ void loop() {
 
   }// only do if connected to wifi
 }
-
-

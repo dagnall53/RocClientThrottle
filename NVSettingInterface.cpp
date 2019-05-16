@@ -13,6 +13,8 @@ extern long ReadADC(int avg);
 
  char receivedChars[numChars];   // an array to store the received data
  boolean newData = false;
+ bool _ProcessedSerialInput;
+ byte ndx;
  char rx_byte;  // to try serial input
  int SerioLevel; // for the serial interface for updates
 
@@ -46,6 +48,7 @@ void CheckForSerialInput(){
     CtrlE=5;
     // will try to change wifiSSID,wifiPassword
     UpdateInProgress=false;
+    _ProcessedSerialInput=false;ndx=0;newData = false;
     if (wifiSSID=="Router Name"){UpdateInProgress=true;Serial.println(" Forcing request for new entries as Default Router name has not been set in Secrets.h");
                                     Serial.println("--Serial port update Started--");
                                     Serial.print("  SSID currently is <");Serial.print(wifiSSID);Serial.print("> Password is <");Serial.print(wifiPassword); Serial.println(">");
@@ -73,7 +76,7 @@ void CheckForSerialInput(){
       recvWithEndMarker();
       if ( (SelectPressed()&& (SerioLevel==0) )||(newData == true) )
              {
-                          if (newData == true){TestData=receivedChars;}
+                          if (newData == true){TestData=receivedChars;_ProcessedSerialInput=true;ndx=0;newData = false;}
                           //Serial.print("Data <");Serial.print(TestData);Serial.println(">"); 
                           //("> Looking for {");Serial.print(LookFor);Serial.println("}");
                           switch (SerioLevel){ 
@@ -227,11 +230,11 @@ void CheckForSerialInput(){
 
 
 void recvWithEndMarker() {
-    static byte ndx = 0;
+   
     char endMarker = '\n';
     char rc;
        while (Serial.available() > 0 ) { 
-           rc = Serial.read();
+           rc = Serial.read(); //echo on
            if ((rc != 10)&&(rc != 13) ){ 
                 receivedChars[ndx] = rc;
                 ndx++; 
@@ -240,7 +243,8 @@ void recvWithEndMarker() {
                                        else { 
                                          newData = true;receivedChars[ndx] = '\0'; // replace NL/CR with /0 terminator. Mark that new data is available, but do not increment ndx
                                              }
-                                        }ndx = 0; //once all serial data has been processed, reset the ndx pointer
+                                delay(1);    }   // added delay to allow other processes whilst reading serial.
+                                        ndx = 0; //once all serial data has been processed, reset the ndx pointer
 }
 
 void showNewData() {
@@ -327,6 +331,3 @@ String read_String(int add)
   #endif
     return String(data);
 }
-
-
-
